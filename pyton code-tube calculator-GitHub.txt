@@ -1,0 +1,95 @@
+import streamlit as st
+import math
+
+# Apply custom styling
+st.markdown(
+    """
+    <style>
+    .main {
+        background-color: #f4f4f4;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# Gas molecular weights (M) in g/mol, converted to kg/mol for correct SI calculations
+forming_gas1_ratio = (0.95 * 0.028) + (0.05 * 0.002)
+forming_gas2_ratio = (0.97 * 0.040) + (0.03 * 0.002)
+
+M = {
+    "N2": 0.028,   # Nitrogen
+    "Ar": 0.040,   # Argon
+    "He": 0.004,   # Helium
+    "O2": 0.032,   # Oxygen
+    "H2": 0.002,   # Hydrogen
+    "C2H2": 0.026, # Acetylene
+    "CH4": 0.016,  # Methane
+    "Air": 0.02897,# Air (approximate)
+    "CO2": 0.044,  # Carbon Dioxide
+    "Forming Gas1": forming_gas1_ratio, 
+    "Forming Gas2": forming_gas2_ratio,
+}
+
+R = 8.314  # Universal gas constant
+
+# Functions for various calculations
+def calculate_d(Q_LPM, T_C, Pin_Pa, Pout_Pa, L, f, M_kg):
+    if None in [Q_LPM, Pin_Pa, Pout_Pa, L] or Pin_Pa <= Pout_Pa:
+        return None
+    Q_m3s = Q_LPM / 60000
+    T_K = T_C + 273.15
+    delta_P = Pin_Pa - Pout_Pa
+    Rs = R / M_kg
+    rho1 = Pin_Pa / (Rs * T_K)
+    rho2 = Pout_Pa / (Rs * T_K)
+    rho_avg = (rho1 + rho2) / 2
+    d_m = ((8 * f * L * rho_avg * Q_m3s**2) / (math.pi**2 * delta_P)) ** (1/5)
+    return d_m * 1000
+
+def calculate_Q(d_mm, T_C, Pin_Pa, Pout_Pa, L, f, M_kg):
+    if None in [d_mm, Pin_Pa, Pout_Pa, L] or Pin_Pa <= Pout_Pa:
+        return None
+    d_m = d_mm / 1000
+    T_K = T_C + 273.15
+    delta_P = Pin_Pa - Pout_Pa
+    Rs = R / M_kg
+    rho1 = Pin_Pa / (Rs * T_K)
+    rho2 = Pout_Pa / (Rs * T_K)
+    rho_avg = (rho1 + rho2) / 2
+    Q_m3s = ((math.pi**2 * delta_P * d_m**5) / (8 * f * L * rho_avg)) ** 0.5
+    return Q_m3s * 60000
+
+# Streamlit Web Application
+st.set_page_config(page_title="Tube Calculator", layout="centered")
+st.title("Tube Calculator (GitHub Deployment Ready)")
+
+with st.sidebar:
+    st.header("Input Parameters")
+    gas_type = st.selectbox("Select Gas Type:", list(M.keys()))
+    calculation_type = st.radio("Select Calculation Type:", ("Diameter", "Flow Rate", "Tube Length", "Inlet Pressure", "Outlet Pressure"))
+    T_C = st.number_input("Temperature (°C):", min_value=-50.0, value=30.0)
+    Pin_bar = st.number_input("Inlet Pressure (bar):", min_value=0.1, value=25.0)
+    Pout_bar = st.number_input("Outlet Pressure (bar):", min_value=0.1, value=10.0)
+    L = st.number_input("Tube Length (m):", min_value=0.1, value=50.0)
+    d_mm = st.number_input("Tube Diameter (mm):", min_value=0.1, value=10.0)
+    Q_LPM = st.number_input("Flow Rate (LPM):", min_value=0.1, value=16.0)
+
+if st.button("Calculate"):
+    Pin_Pa = Pin_bar * 100000
+    Pout_Pa = Pout_bar * 100000
+    f = 0.02
+    
+    if calculation_type == "Diameter":
+        result = calculate_d(Q_LPM, T_C, Pin_Pa, Pout_Pa, L, f, M[gas_type])
+    elif calculation_type == "Flow Rate":
+        result = calculate_Q(d_mm, T_C, Pin_Pa, Pout_Pa, L, f, M[gas_type])
+    else:
+        result = "This calculation type is not yet supported. Please select Diameter or Flow Rate."
+    
+    if result is not None:
+        st.success(f"Result: {result:.2f}")
+    else:
+        st.error("Invalid input parameters. Ensure that inlet pressure is greater than outlet pressure and all required fields are filled.")
+
+st.markdown("**This application is ready for GitHub deployment with Streamlit Cloud.**")
