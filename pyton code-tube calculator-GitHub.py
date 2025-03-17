@@ -1,6 +1,9 @@
 import streamlit as st
 import math
 
+# 🟢 `st.set_page_config` חייב להיות השורה הראשונה אחרי הייבוא
+st.set_page_config(page_title="Tube Calculator", layout="centered")
+
 # Apply custom styling
 st.markdown(
     """
@@ -27,7 +30,7 @@ M = {
     "CH4": 0.016,  # Methane
     "Air": 0.02897,# Air (approximate)
     "CO2": 0.044,  # Carbon Dioxide
-    "Forming Gas1": forming_gas1_ratio, 
+    "Forming Gas1": forming_gas1_ratio,
     "Forming Gas2": forming_gas2_ratio,
 }
 
@@ -61,7 +64,6 @@ def calculate_Q(d_mm, T_C, Pin_Pa, Pout_Pa, L, f, M_kg):
     return Q_m3s * 60000
 
 # Streamlit Web Application
-st.set_page_config(page_title="Tube Calculator", layout="centered")
 st.title("Tube Calculator (GitHub Deployment Ready)")
 
 with st.sidebar:
