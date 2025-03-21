@@ -47,24 +47,24 @@ with st.sidebar:
     # הצגת השדות בהתאם לסוג החישוב
     T_C = st.number_input("Temperature (°C):", min_value=-50.0, value=30.0)
     
+    Pin_bar = None
+    Pout_bar = None
+    L = None
+    d_mm = None
+    Q_LPM = None
+    
     if calculation_type in ["Diameter", "Flow Rate", "Tube Length", "Inlet Pressure", "Outlet Pressure"]:
         Pin_bar = st.number_input("Inlet Pressure (bar):", min_value=0.1, value=25.0)
         Pout_bar = st.number_input("Outlet Pressure (bar):", min_value=0.1, value=10.0)
     
     if calculation_type in ["Diameter", "Flow Rate", "Tube Length"]:
         L = st.number_input("Tube Length (m):", min_value=0.1, value=50.0)
-    else:
-        L = None
     
-    if calculation_type in ["Flow Rate", "Tube Length"]:
+    if calculation_type in ["Flow Rate", "Tube Length", "Inlet Pressure", "Outlet Pressure"]:
         d_mm = st.number_input("Tube Diameter (mm):", min_value=0.1, value=10.0)
-    else:
-        d_mm = None
     
-    if calculation_type in ["Diameter", "Tube Length"]:
+    if calculation_type in ["Diameter", "Tube Length", "Inlet Pressure", "Outlet Pressure"]:
         Q_LPM = st.number_input("Flow Rate (LPM):", min_value=0.1, value=16.0)
-    else:
-        Q_LPM = None
 
 if st.button("Calculate"):
     Pin_Pa = Pin_bar * 100000 if Pin_bar is not None else None
@@ -78,6 +78,10 @@ if st.button("Calculate"):
         result = ((math.pi ** 2 * (Pin_Pa - Pout_Pa) * (d_mm / 1000) ** 5) / (8 * f * L * ((Pin_Pa + Pout_Pa) / 2))) ** 0.5 * 60000
     elif calculation_type == "Tube Length" and None not in [Q_LPM, d_mm, T_C, Pin_Pa, Pout_Pa]:
         result = (math.pi ** 2 * (Pin_Pa - Pout_Pa) * (d_mm / 1000) ** 5) / (8 * f * ((Pin_Pa + Pout_Pa) / 2) * (Q_LPM / 60000) ** 2)
+    elif calculation_type == "Inlet Pressure" and None not in [Q_LPM, d_mm, T_C, Pout_Pa, L]:
+        result = Pout_Pa + ((8 * f * L * ((Pout_Pa + Pout_Pa) / 2) * (Q_LPM / 60000) ** 2) / (math.pi ** 2 * (d_mm / 1000) ** 5))
+    elif calculation_type == "Outlet Pressure" and None not in [Q_LPM, d_mm, T_C, Pin_Pa, L]:
+        result = Pin_Pa - ((8 * f * L * ((Pin_Pa + Pin_Pa) / 2) * (Q_LPM / 60000) ** 2) / (math.pi ** 2 * (d_mm / 1000) ** 5))
     
     if result is not None:
         st.success(f"Result: {result:.2f}")
