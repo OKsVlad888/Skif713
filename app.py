@@ -331,3 +331,37 @@ if st.session_state.last_result is not None:
                 else:
                     table_data.append({"Pipe Spec": spec_entry, "Pressure/Service": ""})
             st.table(table_data)
+
+# --- Fixes from fix code file ---
+
+from pathlib import Path
+import base64
+import streamlit as st
+
+@st.cache_data
+def load_bg_image(image_name: str) -> str | None:
+    base_dir = Path(__file__).resolve().parent
+    image_path = base_dir / image_name
+
+    if not image_path.exists():
+        return None
+
+    with open(image_path, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode("utf-8")
+
+bg_image_base64 = load_bg_image("app_background.png")
+
+if bg_image_base64 is not None:
+    st.markdown(
+        f"""
+        <style>
+        .stApp {{
+            background-image: url("data:image/png;base64,{bg_image_base64}");
+            background-size: cover;
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+else:
+    st.warning("⚠️ קובץ הרקע 'app_background.png' לא נמצא. האפליקציה פועלת ללא רקע גרפי.")
