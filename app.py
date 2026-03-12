@@ -125,7 +125,7 @@ def calc_required_diameter(P_in, P_out, T_c, L, Q, gas):
     rho_avg = (rho_in + rho_out) / 2.0
     delta_p = P_in_pa - P_out_pa
     if delta_p <= 0:
-        raise ValueError(\"Inlet pressure must be greater than outlet pressure.\")
+        raise ValueError("Inlet pressure must be greater than outlet pressure.")
     D_m = ((FRICTION_FACTOR * L * 8.0 * rho_avg * (Q_m3_s ** 2)) / ((math.pi ** 2) * delta_p)) ** 0.2
     return D_m * 1000.0
 
