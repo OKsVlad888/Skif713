@@ -139,7 +139,7 @@ def calc_flow_rate(P_in, P_out, T_c, L, D, gas):
     rho_avg = (rho_in + rho_out) / 2.0
     delta_p = P_in_pa - P_out_pa
     if delta_p <= 0:
-        raise ValueError(\"Inlet pressure must be higher than outlet pressure.\")
+        raise ValueError("Inlet pressure must be higher than outlet pressure.")
     Q_m3_s = math.sqrt((delta_p * (math.pi ** 2) * (D_m ** 5)) / (8.0 * FRICTION_FACTOR * L * rho_avg))
     return Q_m3_s * 1000.0 * 60.0
 
@@ -153,7 +153,7 @@ def calc_max_length(P_in, P_out, T_c, D, Q, gas):
     rho_avg = (rho_in + rho_out) / 2.0
     delta_p = P_in_pa - P_out_pa
     if delta_p <= 0:
-        raise ValueError(\"Inlet pressure must be greater than outlet pressure.\")
+        raise ValueError("Inlet pressure must be greater than outlet pressure.")
     Q_m3_s = Q / 1000.0 / 60.0
     L = (delta_p * (math.pi ** 2) * (D_m ** 5)) / (8.0 * FRICTION_FACTOR * rho_avg * (Q_m3_s ** 2))
     return L
