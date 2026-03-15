@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HUD Background</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #000d0d;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    font-family: 'Courier New', monospace;
+    color: #00e5cc;
+  }
+
+  .hud-root {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background: #000d0d;
+  }
+
+  /* ========= BACKGROUND IMAGE ========= */
+  .bg-image {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.25;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ========= MAIN BLACK VIEWPORT (do NOT animate this) ========= */
+  .main-viewport {
+    position: absolute;
+    left: 1%;
+    top: 21%;
+    width: 54%;
+    height: 44%;
+    background: transparent;
+    z-index: 100;
+    pointer-events: none;
+  }
+
+  /* ========= GLOBAL OVERLAY CANVAS ========= */
+  #hud-canvas {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    pointer-events: none;
+  }
+
+  /* ========= SCAN LINE OVERLAY ========= */
+  .scanlines {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+      to bottom,
+      transparent 0px,
+      transparent 3px,
+      rgba(0,229,204,0.015) 3px,
+      rgba(0,229,204,0.015) 4px
+    );
+    animation: scanPulse 8s ease-in-out infinite;
+  }
+  @keyframes scanPulse {
+    0%,100% { opacity: 0.6; }
+    50% { opacity: 1; }
+  }
+
+  /* ========= SCROLLING SCAN LINE ========= */
+  .scan-sweep {
+    position: absolute;
+    left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(0,229,204,0.6), transparent);
+    z-index: 6;
+    animation: scanSweep 6s linear infinite;
+    pointer-events: none;
+  }
+  @keyframes scanSweep {
+    0% { top: -2px; opacity: 0.8; }
+    90% { opacity: 0.8; }
+    100% { top: 100%; opacity: 0; }
+  }
+
+  /* ========= TOP LEFT PANEL — DATA CHANNELS ========= */
+  .panel-topleft {
+    position: absolute;
+    top: 1%;
+    left: 0.5%;
+    width: 23%;
+    height: 15%;
+    z-index: 20;
+    padding: 6px;
+  }
+
+  .data-channel {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 5px;
+    font-size: 10px;
+    color: #00e5cc;
+  }
+
+  .dc-number {
+    font-size: 18px;
+    font-weight: bold;
+    color: #00ffee;
+    min-width: 28px;
+    text-shadow: 0 0 10px #00e5cc;
+    animation: numberFlicker 3s ease-in-out infinite;
+  }
+
+  @keyframes numberFlicker {
+    0%, 90%, 100% { opacity: 1; }
+    92% { opacity: 0.3; }
+    94% { opacity: 1; }
+    96% { opacity: 0.5; }
+  }
+
+  .dc-bar-wrap {
+    flex: 1;
+    height: 6px;
+    background: rgba(0,229,204,0.1);
+    border: 0.5px solid rgba(0,229,204,0.3);
+    border-radius: 1px;
+    overflow: hidden;
+  }
+
+  .dc-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #004d44, #00e5cc);
+    animation: barGrow 2s ease-in-out infinite alternate;
+  }
+
+  .dc-bar:nth-child(1) { animation-delay: 0s; }
+  .dc-bar.b2 { animation-delay: 0.7s; animation-duration: 1.7s; }
+  .dc-bar.b3 { animation-delay: 1.2s; animation-duration: 2.3s; }
+
+  @keyframes barGrow {
+    from { width: 30%; }
+    to { width: 90%; }
+  }
+
+  .dc-mini-numbers {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 2px;
+    font-size: 9px;
+    opacity: 0.7;
+  }
+
+  .dc-mini-num {
+    text-align: center;
+    animation: numChange 1.5s steps(1) infinite;
+  }
+
+  @keyframes numChange {
+    0%   { content: '31'; }
+    33%  { opacity: 0.4; }
+    66%  { opacity: 1; }
+    100% { opacity: 0.7; }
+  }
+
+  /* ========= TOP CENTER - EXTRACT DATA ========= */
+  .panel-topcenter {
+    position: absolute;
+    top: 1%;
+    left: 17%;
+    width: 19%;
+    height: 15%;
+    z-index: 20;
+    border: 0.5px solid rgba(0,229,204,0.4);
+    padding: 6px;
+  }
+
+  .extract-title {
+    font-size: 11px;
+    font-weight: bold;
+    letter-spacing: 2px;
+    color: #00ffee;
+    margin-bottom: 4px;
+    text-shadow: 0 0 8px #00e5cc;
+  }
+
+  .extract-bars {
+    display: flex;
+    gap: 2px;
+    align-items: flex-end;
+    height: 30px;
+    margin-bottom: 4px;
+  }
+
+  .ext-bar {
+    flex: 1;
+    background: #00e5cc;
+    animation: barHeight 1.2s ease-in-out infinite alternate;
+    box-shadow: 0 0 4px #00e5cc;
+  }
+
+  @keyframes barHeight {
+    from { height: 20%; opacity: 0.5; }
+    to { height: 90%; opacity: 1; }
+  }
+
+  .ext-bar:nth-child(1) { animation-delay: 0.0s; }
+  .ext-bar:nth-child(2) { animation-delay: 0.2s; }
+  .ext-bar:nth-child(3) { animation-delay: 0.4s; }
+  .ext-bar:nth-child(4) { animation-delay: 0.1s; }
+  .ext-bar:nth-child(5) { animation-delay: 0.3s; }
+  .ext-bar:nth-child(6) { animation-delay: 0.5s; }
+  .ext-bar:nth-child(7) { animation-delay: 0.15s; }
+  .ext-bar:nth-child(8) { animation-delay: 0.35s; }
+  .ext-bar:nth-child(9) { animation-delay: 0.25s; }
+  .ext-bar:nth-child(10) { animation-delay: 0.45s; }
+
+  .extract-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 2px;
+    font-size: 11px;
+    font-weight: bold;
+  }
+
+  .eg-num {
+    text-align: center;
+    color: #00ffee;
+    animation: numFlick 2s steps(1) infinite;
+  }
+
+  @keyframes numFlick {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+
+  /* ========= TOP RIGHT — WAVEFORMS ========= */
+  .panel-topright {
+    position: absolute;
+    top: 0.5%;
+    left: 37%;
+    width: 37%;
+    height: 12%;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 4px;
+  }
+
+  .waveform-track {
+    flex: 1;
+    position: relative;
+    background: rgba(0,229,204,0.05);
+    border: 0.5px solid rgba(0,229,204,0.25);
+    overflow: hidden;
+  }
+
+  .waveform-track canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* ========= LOREM IPSUM PANEL ========= */
+  .panel-lorem {
+    position: absolute;
+    top: 12%;
+    left: 37%;
+    width: 28%;
+    height: 8%;
+    z-index: 20;
+    padding: 4px 8px;
+  }
+
+  .lorem-title {
+    font-size: 12px;
+    font-weight: bold;
+    letter-spacing: 2px;
+    color: #00ffee;
+    text-shadow: 0 0 6px #00e5cc;
+  }
+
+  .lorem-text {
+    font-size: 8px;
+    color: rgba(0,229,204,0.7);
+    margin-top: 2px;
+    animation: textScroll 10s linear infinite;
+  }
+
+  .lorem-datax {
+    font-size: 8px;
+    color: #ffaa00;
+    margin-top: 2px;
+    animation: dataXPulse 2s ease-in-out infinite;
+  }
+
+  @keyframes dataXPulse {
+    0%,100% { opacity: 1; color: #ffaa00; }
+    50% { opacity: 0.5; color: #ff6600; }
+  }
+
+  @keyframes textScroll {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+
+  /* ========= RIGHT SIDE — TARGET/CROSSHAIR ========= */
+  .panel-crosshair {
+    position: absolute;
+    top: 12%;
+    right: 0.5%;
+    width: 9%;
+    height: 10%;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .crosshair-svg {
+    width: 70%;
+    height: 70%;
+    animation: crosshairRotate 8s linear infinite;
+  }
+
+  @keyframes crosshairRotate {
+    0% { opacity: 0.7; }
+    25% { opacity: 1; }
+    75% { opacity: 0.8; }
+    100% { opacity: 0.7; }
+  }
+
+  /* ========= RIGHT MAIN — WAVEFORM PANEL ========= */
+  .panel-right-wave {
+    position: absolute;
+    top: 21%;
+    right: 0.5%;
+    width: 28%;
+    height: 13%;
+    z-index: 20;
+    background: rgba(0,229,204,0.03);
+    border: 0.5px solid rgba(0,229,204,0.3);
+    overflow: hidden;
+  }
+
+  /* ========= RIGHT — DNA / HELIX PANEL ========= */
+  .panel-dna {
+    position: absolute;
+    top: 36%;
+    right: 0.5%;
+    width: 28%;
+    height: 15%;
+    z-index: 20;
+    border: 0.5px solid rgba(0,229,204,0.25);
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .dna-canvas {
+    width: 100%;
+    height: 100%;
+  }
+
+  /* ========= RIGHT — HEX DATA STREAM ========= */
+  .panel-hexdata {
+    position: absolute;
+    top: 52%;
+    right: 0.5%;
+    width: 28%;
+    height: 18%;
+    z-index: 20;
+    padding: 4px;
+    font-size: 7.5px;
+    color: rgba(0,229,204,0.6);
+    line-height: 1.4;
+    overflow: hidden;
+    border: 0.5px solid rgba(0,229,204,0.2);
+  }
+
+  .hex-line {
+    display: block;
+    white-space: nowrap;
+    animation: hexCycle 3s steps(1) infinite;
+  }
+
+  @keyframes hexCycle {
+    0%,100% { opacity: 0.6; }
+    33% { opacity: 1; color: #00ffee; }
+    66% { opacity: 0.4; }
+  }
+
+  /* ========= RIGHT BOTTOM — SCANNING DATA ========= */
+  .panel-scandata {
+    position: absolute;
+    top: 71%;
+    right: 0.5%;
+    width: 28%;
+    height: 16%;
+    z-index: 20;
+    border: 0.5px solid rgba(0,229,204,0.25);
+    padding: 6px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .scan-radial {
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+  }
+
+  .scan-info {
+    flex: 1;
+  }
+
+  .scan-label {
+    font-size: 7px;
+    color: rgba(0,229,204,0.5);
+    letter-spacing: 1px;
+  }
+
+  .scan-value {
+    font-size: 22px;
+    font-weight: bold;
+    color: #00ffee;
+    text-shadow: 0 0 10px #00e5cc;
+    animation: valuePulse 2s ease-in-out infinite;
+  }
+
+  @keyframes valuePulse {
+    0%,100% { text-shadow: 0 0 10px #00e5cc; }
+    50% { text-shadow: 0 0 20px #00ffee, 0 0 40px #00e5cc; }
+  }
+
+  /* ========= BOTTOM LEFT — BINARY STREAM ========= */
+  .panel-binary {
+    position: absolute;
+    bottom: 1%;
+    left: 0.5%;
+    width: 10%;
+    height: 27%;
+    z-index: 20;
+    border: 0.5px solid rgba(0,229,204,0.2);
+    padding: 4px;
+    overflow: hidden;
+  }
+
+  .binary-stream {
+    font-size: 7px;
+    color: rgba(0,229,204,0.5);
+    line-height: 1.5;
+    animation: binaryScroll 4s linear infinite;
+  }
+
+  @keyframes binaryScroll {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(-50%); }
+  }
+
+  /* ========= BOTTOM — ACCESS POINT ========= */
+  .panel-access {
+    position: absolute;
+    bottom: 1%;
+    left: 22%;
+    width: 14%;
+    height: 27%;
+    z-index: 20;
+    border: 0.5px solid rgba(0,229,204,0.3);
+    padding: 6px;
+  }
+
+  .access-title {
+    font-size: 8px;
+    color: rgba(0,229,204,0.6);
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+  }
+
+  .access-graph-area {
+    height: 60%;
+    position: relative;
+    border-bottom: 0.5px solid rgba(0,229,204,0.3);
+  }
+
+  /* ========= BOTTOM CENTER — TRACKING ========= */
+  .panel-tracking {
+    position: absolute;
+    bottom: 1%;
+    left: 37%;
+    width: 21%;
+    height: 27%;
+    z-index: 20;
+    border: 1px solid rgba(0,229,204,0.4);
+    padding: 4px;
+    background: rgba(0,30,26,0.3);
+  }
+
+  .tracking-title {
+    font-size: 8px;
+    color: rgba(0,229,204,0.8);
+    letter-spacing: 1px;
+    padding: 2px;
+    background: rgba(0,229,204,0.1);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+  }
+
+  .tracking-hex-small {
+    font-size: 6.5px;
+    color: rgba(0,229,204,0.55);
+    line-height: 1.4;
+    overflow: hidden;
+    height: 80%;
+  }
+
+  /* ========= BOTTOM RIGHT — ANALYZING ========= */
+  .panel-analyzing {
+    position: absolute;
+    bottom: 1%;
+    right: 0.5%;
+    width: 10%;
+    height: 27%;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .analyzing-block {
+    flex: 1;
+    border: 0.5px solid rgba(0,229,204,0.3);
+    padding: 4px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .analyzing-label {
+    font-size: 7px;
+    color: rgba(0,229,204,0.6);
+    letter-spacing: 1px;
+    margin-bottom: 2px;
+  }
+
+  .analyzing-bars {
+    display: flex;
+    gap: 1px;
+    align-items: flex-end;
+    height: 50%;
+    position: absolute;
+    bottom: 4px;
+    left: 4px;
+    right: 4px;
+  }
+
+  .ab {
+    flex: 1;
+    background: #00e5cc;
+    animation: abHeight 0.8s ease-in-out infinite alternate;
+    box-shadow: 0 0 3px #00e5cc;
+  }
+
+  @keyframes abHeight {
+    from { height: 20%; opacity: 0.4; }
+    to { height: 100%; opacity: 0.9; }
+  }
+
+  /* Stagger each bar */
+  .ab:nth-child(1) { animation-delay: 0.00s; }
+  .ab:nth-child(2) { animation-delay: 0.08s; }
+  .ab:nth-child(3) { animation-delay: 0.16s; }
+  .ab:nth-child(4) { animation-delay: 0.24s; }
+  .ab:nth-child(5) { animation-delay: 0.32s; }
+  .ab:nth-child(6) { animation-delay: 0.10s; }
+  .ab:nth-child(7) { animation-delay: 0.18s; }
+  .ab:nth-child(8) { animation-delay: 0.26s; }
+  .ab:nth-child(9) { animation-delay: 0.05s; }
+  .ab:nth-child(10) { animation-delay: 0.13s; }
+  .ab:nth-child(11) { animation-delay: 0.21s; }
+  .ab:nth-child(12) { animation-delay: 0.29s; }
+
+  /* ========= CORNER DECORATIONS ========= */
+  .corner-deco {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    z-index: 30;
+    pointer-events: none;
+  }
+  .corner-deco.tl { top: 20%; left: 0.5%; border-top: 1px solid #00e5cc; border-left: 1px solid #00e5cc; }
+  .corner-deco.tr { top: 20%; right: 29%; border-top: 1px solid #00e5cc; border-right: 1px solid #00e5cc; }
+  .corner-deco.bl { bottom: 28%; left: 0.5%; border-bottom: 1px solid #00e5cc; border-left: 1px solid #00e5cc; }
+  .corner-deco.br { bottom: 28%; right: 29%; border-bottom: 1px solid #00e5cc; border-right: 1px solid #00e5cc; }
+
+  /* ========= GLITCH EFFECT ========= */
+  .glitch-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 50;
+    pointer-events: none;
+    animation: glitchTrigger 12s steps(1) infinite;
+  }
+
+  @keyframes glitchTrigger {
+    0%,90%,100% { opacity: 0; }
+    91% { opacity: 1; clip-path: inset(20% 0 60% 0); background: rgba(0,255,238,0.04); transform: translateX(4px); }
+    92% { opacity: 1; clip-path: inset(65% 0 10% 0); background: rgba(0,255,238,0.03); transform: translateX(-3px); }
+    93% { opacity: 0; }
+  }
+
+</style>
+</head>
+<body>
+<div class="hud-root">
+
+  <!-- Scan sweep line -->
+  <div class="scan-sweep"></div>
+  <!-- Scanlines texture -->
+  <div class="scanlines"></div>
+  <!-- Glitch layer -->
+  <div class="glitch-overlay"></div>
+
+  <!-- Corner decorations around the main black viewport -->
+  <div class="corner-deco tl"></div>
+  <div class="corner-deco tr"></div>
+  <div class="corner-deco bl"></div>
+  <div class="corner-deco br"></div>
+
+  <!-- Main animating canvas (waveforms etc.) -->
+  <canvas id="hud-canvas"></canvas>
+
+  <!-- ======== TOP LEFT — DATA CHANNELS ======== -->
+  <div class="panel-topleft">
+    <div class="data-channel">
+      <div class="dc-number" id="dc1">83</div>
+      <div style="flex:1">
+        <div style="font-size:7px;opacity:0.6;margin-bottom:2px;">DATA CHANELL IDENTIFICATION</div>
+        <div class="dc-bar-wrap"><div class="dc-bar" style="width:75%"></div></div>
+      </div>
+      <div style="width:16px;height:16px;border-radius:50%;border:1px solid #00e5cc;display:flex;align-items:center;justify-content:center;">
+        <svg width="10" height="10" viewBox="0 0 10 10"><circle cx="5" cy="5" r="3" fill="none" stroke="#00e5cc" stroke-width="0.8"/><line x1="5" y1="1" x2="5" y2="4" stroke="#00e5cc" stroke-width="0.8"/><line x1="5" y1="6" x2="5" y2="9" stroke="#00e5cc" stroke-width="0.8"/></svg>
+      </div>
+    </div>
+    <div class="data-channel">
+      <div class="dc-number" id="dc2">70</div>
+      <div style="flex:1">
+        <div style="font-size:7px;opacity:0.6;margin-bottom:2px;">DATA CHANELL IDENTIFICATION</div>
+        <div class="dc-bar-wrap"><div class="dc-bar b2" style="width:55%"></div></div>
+      </div>
+      <div style="width:16px;height:16px;border-radius:50%;border:1px solid #00e5cc;display:flex;align-items:center;justify-content:center;">
+        <svg width="10" height="10" viewBox="0 0 10 10"><circle cx="5" cy="5" r="3" fill="none" stroke="#00e5cc" stroke-width="0.8"/></svg>
+      </div>
+    </div>
+    <div class="data-channel">
+      <div class="dc-number" id="dc3">39</div>
+      <div style="flex:1">
+        <div style="font-size:7px;opacity:0.6;margin-bottom:2px;">DATA CHANELL IDENTIFICATION</div>
+        <div class="dc-bar-wrap"><div class="dc-bar b3" style="width:40%"></div></div>
+      </div>
+    </div>
+    <div class="data-channel">
+      <div class="dc-number" id="dc4">31</div>
+      <div style="flex:1">
+        <div style="font-size:7px;opacity:0.6;margin-bottom:2px;">DATA CHANELL IDENTIFICATION</div>
+        <div class="dc-bar-wrap"><div class="dc-bar" style="width:25%"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======== TOP CENTER — EXTRACT DATA ======== -->
+  <div class="panel-topcenter">
+    <div class="extract-title">EXTRACT DATA ▐▐▐▐▐▐</div>
+    <div class="extract-bars">
+      <div class="ext-bar"></div><div class="ext-bar"></div><div class="ext-bar"></div>
+      <div class="ext-bar"></div><div class="ext-bar"></div><div class="ext-bar"></div>
+      <div class="ext-bar"></div><div class="ext-bar"></div><div class="ext-bar"></div>
+      <div class="ext-bar"></div>
+    </div>
+    <div style="display:flex;gap:2px;align-items:center;margin-bottom:3px;">
+      <div style="width:18px;height:18px;border:1px solid rgba(0,229,204,0.5);border-radius:50%;display:flex;align-items:center;justify-content:center;">
+        <div style="width:6px;height:6px;background:#00e5cc;border-radius:50%;animation:corePulse 1s ease-in-out infinite alternate;"></div>
+      </div>
+      <div style="width:18px;height:18px;border:1px solid rgba(0,229,204,0.5);border-radius:50%;display:flex;align-items:center;justify-content:center;">
+        <div style="width:6px;height:6px;border:1px solid #00e5cc;border-radius:50%;"></div>
+      </div>
+    </div>
+    <div class="extract-grid">
+      <div class="eg-num" id="eg1">31</div><div class="eg-num" id="eg2">23</div><div class="eg-num" id="eg3">31</div>
+      <div class="eg-num" id="eg4">34</div><div class="eg-num" id="eg5">63</div><div class="eg-num" id="eg6">30</div>
+    </div>
+  </div>
+
+  <!-- ======== TOP RIGHT — WAVEFORMS ======== -->
+  <div class="panel-topright">
+    <div class="waveform-track"><canvas id="wave1"></canvas></div>
+    <div class="waveform-track"><canvas id="wave2"></canvas></div>
+    <div class="waveform-track"><canvas id="wave3"></canvas></div>
+  </div>
+
+  <!-- ======== LOREM IPSUM PANEL ======== -->
+  <div class="panel-lorem">
+    <div class="lorem-title">LOREM IPSUM</div>
+    <div class="lorem-text">Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod</div>
+    <div class="lorem-datax">DATA X54 ▶▶▶</div>
+  </div>
+
+  <!-- ======== CROSSHAIR / TARGET ICONS ======== -->
+  <div class="panel-crosshair" style="right:18%; top:12%;">
+    <svg class="crosshair-svg" viewBox="0 0 60 60">
+      <circle cx="30" cy="30" r="25" fill="none" stroke="#00e5cc" stroke-width="0.8" opacity="0.5"/>
+      <circle cx="30" cy="30" r="18" fill="none" stroke="#00e5cc" stroke-width="0.5" opacity="0.4"/>
+      <line x1="30" y1="5" x2="30" y2="20" stroke="#00e5cc" stroke-width="1"/>
+      <line x1="30" y1="40" x2="30" y2="55" stroke="#00e5cc" stroke-width="1"/>
+      <line x1="5" y1="30" x2="20" y2="30" stroke="#00e5cc" stroke-width="1"/>
+      <line x1="40" y1="30" x2="55" y2="30" stroke="#00e5cc" stroke-width="1"/>
+      <circle cx="30" cy="30" r="3" fill="#00e5cc" opacity="0.8"/>
+      <animateTransform attributeName="transform" type="rotate" from="0 30 30" to="360 30 30" dur="20s" repeatCount="indefinite"/>
+    </svg>
+  </div>
+
+  <div class="panel-crosshair" style="right:10%; top:12%;">
+    <svg class="crosshair-svg" viewBox="0 0 60 60" style="animation:none">
+      <polygon points="30,8 38,22 52,22 41,31 45,46 30,37 15,46 19,31 8,22 22,22" fill="none" stroke="#00e5cc" stroke-width="1" opacity="0.7"/>
+      <polygon points="30,14 36,24 46,24 38,30 41,41 30,35 19,41 22,30 14,24 24,24" fill="rgba(0,229,204,0.1)" stroke="#00e5cc" stroke-width="0.5"/>
+    </svg>
+  </div>
+
+  <!-- ======== RIGHT WAVE PANEL ======== -->
+  <div class="panel-right-wave">
+    <canvas id="waveRight" style="width:100%;height:100%;"></canvas>
+  </div>
+
+  <!-- ======== DNA / HELIX PANEL ======== -->
+  <div class="panel-dna">
+    <canvas id="dnaCanvas" class="dna-canvas"></canvas>
+  </div>
+
+  <!-- ======== HEX DATA STREAM ======== -->
+  <div class="panel-hexdata" id="hexPanel">
+    <!-- Generated by JS -->
+  </div>
+
+  <!-- ======== SCANNING DATA ======== -->
+  <div class="panel-scandata">
+    <div style="flex:1">
+      <div class="scan-label">SCANNING DATA</div>
+      <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
+        <canvas id="radial1" width="36" height="36"></canvas>
+        <div>
+          <div class="scan-label">GET DATA FROM<br>IDENTIFICATION READY</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;margin-top:6px;">
+        <canvas id="radial2" width="36" height="36"></canvas>
+        <div>
+          <div class="scan-label">OPTIMISATION<br>NOW MAIN</div>
+        </div>
+      </div>
+    </div>
+    <div style="text-align:center;">
+      <div class="scan-value" id="scanVal1">70</div>
+      <div class="scan-label">DATA CHANELL<br>IDENTIFICATION</div>
+      <div style="margin-top:6px;">
+        <canvas id="radial3" width="24" height="24"></canvas>
+      </div>
+      <div class="scan-value" id="scanVal2" style="font-size:16px;margin-top:4px;">39</div>
+      <div class="scan-label">DATA CHANELL<br>IDENTIFICATION</div>
+    </div>
+  </div>
+
+  <!-- ======== BOTTOM BINARY ======== -->
+  <div class="panel-binary">
+    <div class="binary-stream" id="binaryStream"></div>
+  </div>
+
+  <!-- ======== BOTTOM ACCESS POINT ======== -->
+  <div class="panel-access">
+    <div class="access-title">ACCES POINT</div>
+    <div style="font-size:7px;color:rgba(0,229,204,0.4);margin-bottom:4px;">LOREM IPSUM DOLOR SIT AMET LOREM</div>
+    <div class="access-graph-area">
+      <canvas id="accessGraph" style="width:100%;height:100%;"></canvas>
+    </div>
+    <div style="font-size:7px;color:rgba(0,229,204,0.5);margin-top:3px;">SCANNING DATA</div>
+    <div style="display:flex;gap:4px;align-items:center;margin-top:2px;">
+      <canvas id="accessRadial" width="20" height="20"></canvas>
+      <div style="font-size:7px;color:rgba(0,229,204,0.4);">SCANNING DATA</div>
+    </div>
+  </div>
+
+  <!-- ======== BOTTOM TRACKING ======== -->
+  <div class="panel-tracking">
+    <div class="tracking-title" id="trackTitle">TRACKING_TARGET_02XE8466</div>
+    <div class="tracking-hex-small" id="trackHex"></div>
+  </div>
+
+  <!-- ======== BOTTOM ANALYZING ======== -->
+  <div class="panel-analyzing">
+    <div class="analyzing-block">
+      <div class="analyzing-label">ANALIZING INF</div>
+      <div class="analyzing-bars">
+        <div class="ab"></div><div class="ab"></div><div class="ab"></div>
+        <div class="ab"></div><div class="ab"></div><div class="ab"></div>
+      </div>
+    </div>
+    <div class="analyzing-block">
+      <div class="analyzing-label">ANALIZING INF</div>
+      <div class="analyzing-bars">
+        <div class="ab"></div><div class="ab"></div><div class="ab"></div>
+        <div class="ab"></div><div class="ab"></div><div class="ab"></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- end hud-root -->
+
+<script>
+// ============================================================
+//  UTILITIES
+// ============================================================
+const rnd = (a,b) => Math.random()*(b-a)+a;
+const hex2 = () => Math.floor(Math.random()*256).toString(16).padStart(2,'0').toUpperCase();
+const hexByte = () => hex2();
+function hexLine(cols){
+  let out=''; for(let i=0;i<cols;i++) out+=(i>0?' ':'')+hexByte();
+  return out;
+}
+
+// ============================================================
+//  ANIMATED NUMBERS
+// ============================================================
+const numEls = {
+  dc1: [75,95], dc2:[60,80], dc3:[30,50], dc4:[25,40],
+  eg1:[25,40], eg2:[18,30], eg3:[25,40],
+  eg4:[28,45], eg5:[55,70], eg6:[25,38],
+  scanVal1:[60,80], scanVal2:[30,50]
+};
+
+Object.entries(numEls).forEach(([id,[min,max]])=>{
+  const el=document.getElementById(id);
+  if(!el) return;
+  const dur = rnd(1200,2800);
+  setInterval(()=>{
+    el.textContent = Math.round(rnd(min,max));
+  }, dur);
+});
+
+// ============================================================
+//  WAVEFORM CANVASES (top right - 3 tracks)
+// ============================================================
+function makeWave(canvasId, freq, amp, speed, color){
+  const canvas = document.getElementById(canvasId);
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  let offset=0;
+  function resize(){
+    canvas.width = canvas.offsetWidth * devicePixelRatio || 200;
+    canvas.height = canvas.offsetHeight * devicePixelRatio || 20;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+  function draw(){
+    const W=canvas.width, H=canvas.height;
+    ctx.clearRect(0,0,W,H);
+    ctx.strokeStyle = color || '#00e5cc';
+    ctx.lineWidth = devicePixelRatio;
+    ctx.shadowColor = color || '#00e5cc';
+    ctx.shadowBlur = 4;
+    ctx.beginPath();
+    for(let x=0;x<W;x++){
+      const y = H/2 + Math.sin((x/W)*freq*Math.PI*2+offset)*amp*(H/2)*0.8
+              + Math.sin((x/W)*freq*1.5*Math.PI*2+offset*0.7)*amp*(H/2)*0.3;
+      x===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+    offset+=speed;
+    requestAnimationFrame(draw);
+  }
+  draw();
+}
+
+makeWave('wave1', 8, 0.5, 0.04, '#00e5cc');
+makeWave('wave2', 5, 0.7, 0.06, '#00ccbb');
+makeWave('wave3', 11, 0.4, 0.03, '#00ffee');
+
+// ============================================================
+//  RIGHT BIG WAVEFORM
+// ============================================================
+makeWave('waveRight', 6, 0.6, 0.05, '#00d4bc');
+
+// ============================================================
+//  DNA HELIX ANIMATION
+// ============================================================
+(function dnaHelix(){
+  const canvas = document.getElementById('dnaCanvas');
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  let t=0;
+  function resize(){
+    canvas.width = canvas.offsetWidth*devicePixelRatio||300;
+    canvas.height = canvas.offsetHeight*devicePixelRatio||80;
+  }
+  resize();
+  window.addEventListener('resize',resize);
+  function draw(){
+    const W=canvas.width, H=canvas.height;
+    ctx.clearRect(0,0,W,H);
+    const nodes=20;
+    const step=W/nodes;
+    for(let i=0;i<=nodes;i++){
+      const x=i*step;
+      const y1=H/2+Math.sin(i*0.6+t)*H*0.3;
+      const y2=H/2+Math.sin(i*0.6+t+Math.PI)*H*0.3;
+      // strand 1
+      ctx.beginPath(); ctx.arc(x,y1,3*devicePixelRatio,0,Math.PI*2);
+      const bright1=0.4+0.6*(0.5+0.5*Math.sin(i*0.6+t));
+      ctx.fillStyle=`rgba(0,229,204,${bright1})`; ctx.fill();
+      // strand 2
+      ctx.beginPath(); ctx.arc(x,y2,3*devicePixelRatio,0,Math.PI*2);
+      const bright2=0.4+0.6*(0.5+0.5*Math.sin(i*0.6+t+Math.PI));
+      ctx.fillStyle=`rgba(0,180,160,${bright2})`; ctx.fill();
+      // connection bridge
+      if(i<nodes){
+        ctx.beginPath(); ctx.moveTo(x,y1); ctx.lineTo(x+step/2,H/2); ctx.lineTo(x+step,y2);
+        ctx.strokeStyle='rgba(0,229,204,0.15)'; ctx.lineWidth=devicePixelRatio*0.7; ctx.stroke();
+      }
+    }
+    t+=0.04;
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+// ============================================================
+//  HEX DATA STREAM (right panel)
+// ============================================================
+(function hexStream(){
+  const panel=document.getElementById('hexPanel');
+  if(!panel) return;
+  function generateLines(){
+    panel.innerHTML='';
+    for(let r=0;r<14;r++){
+      const span=document.createElement('span');
+      span.className='hex-line';
+      span.style.animationDelay=rnd(0,3)+'s';
+      span.textContent=hexLine(12);
+      panel.appendChild(span);
+    }
+  }
+  generateLines();
+  setInterval(()=>{
+    const lines=panel.querySelectorAll('.hex-line');
+    lines.forEach(l=>{ if(Math.random()<0.3) l.textContent=hexLine(12); });
+  }, 400);
+})();
+
+// ============================================================
+//  TRACKING HEX (bottom center)
+// ============================================================
+(function trackHex(){
+  const el=document.getElementById('trackHex');
+  if(!el) return;
+  function gen(){
+    let html='';
+    for(let r=0;r<8;r++) html+=hexLine(10)+'<br>';
+    el.innerHTML=html;
+  }
+  gen();
+  setInterval(gen,1000);
+
+  // Tracking title flash
+  const title=document.getElementById('trackTitle');
+  setInterval(()=>{
+    const ids=['02XE8466','04AB23FF','07DC9EA1','0F1B2C3D'];
+    title.textContent='TRACKING_TARGET_'+ids[Math.floor(Math.random()*ids.length)];
+  },3000);
+})();
+
+// ============================================================
+//  BINARY STREAM (bottom left)
+// ============================================================
+(function binaryStream(){
+  const el=document.getElementById('binaryStream');
+  if(!el) return;
+  function binLine(){
+    let s=''; for(let i=0;i<20;i++) s+=(Math.random()>0.5?'1':'0');
+    return s;
+  }
+  let content='';
+  for(let i=0;i<60;i++) content+=binLine()+'<br>';
+  el.innerHTML=content+content; // doubled for seamless scroll
+})();
+
+// ============================================================
+//  RADIAL / DONUT INDICATORS
+// ============================================================
+function drawRadial(id, pct, color, size){
+  const canvas=document.getElementById(id);
+  if(!canvas) return;
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width, H=canvas.height;
+  const cx=W/2, cy=H/2, r=Math.min(W,H)/2-3;
+  let angle=0, dir=0.5;
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    // track
+    ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2);
+    ctx.strokeStyle='rgba(0,229,204,0.15)'; ctx.lineWidth=3; ctx.stroke();
+    // fill
+    ctx.beginPath(); ctx.arc(cx,cy,r,-Math.PI/2,-Math.PI/2+Math.PI*2*(pct+Math.sin(angle)*0.1));
+    ctx.strokeStyle=color||'#00e5cc'; ctx.lineWidth=3; ctx.stroke();
+    angle+=0.03;
+    requestAnimationFrame(draw);
+  }
+  draw();
+}
+
+drawRadial('radial1',0.7,'#00e5cc',36);
+drawRadial('radial2',0.45,'#00ccaa',36);
+drawRadial('radial3',0.6,'#00e5cc',24);
+drawRadial('accessRadial',0.55,'#00e5cc',20);
+
+// ============================================================
+//  ACCESS POINT GRAPH
+// ============================================================
+(function accessGraph(){
+  const canvas=document.getElementById('accessGraph');
+  if(!canvas) return;
+  const ctx=canvas.getContext('2d');
+  let pts=[];
+  function resize(){
+    canvas.width=canvas.offsetWidth*devicePixelRatio||100;
+    canvas.height=canvas.offsetHeight*devicePixelRatio||60;
+    pts=Array.from({length:canvas.width},(_,i)=>({x:i,y:canvas.height*0.5}));
+  }
+  resize();
+  window.addEventListener('resize',resize);
+  let t=0;
+  function draw(){
+    const W=canvas.width,H=canvas.height;
+    ctx.clearRect(0,0,W,H);
+    // shift left, add new point
+    pts.shift();
+    pts.push({x:W, y: H*0.5+Math.sin(t*0.08)*H*0.3+rnd(-H*0.05,H*0.05)});
+    pts.forEach((p,i)=>p.x=i);
+    ctx.beginPath();
+    pts.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));
+    ctx.strokeStyle='#00e5cc'; ctx.lineWidth=devicePixelRatio; ctx.stroke();
+    // fill below
+    ctx.lineTo(W,H); ctx.lineTo(0,H); ctx.closePath();
+    ctx.fillStyle='rgba(0,229,204,0.06)'; ctx.fill();
+    t++;
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+// ============================================================
+//  MAIN HUD CANVAS — decorative lines / grid / markers
+// ============================================================
+(function hudCanvas(){
+  const canvas=document.getElementById('hud-canvas');
+  if(!canvas) return;
+  const ctx=canvas.getContext('2d');
+  function resize(){
+    canvas.width=window.innerWidth;
+    canvas.height=window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize',resize);
+
+  let t=0;
+  // Some moving "data points" that drift around the non-black areas
+  const dots=Array.from({length:18},()=>({
+    x:rnd(0.75,0.99)*window.innerWidth,
+    y:rnd(0.01,0.88)*window.innerHeight,
+    vx:rnd(-0.3,0.3), vy:rnd(-0.3,0.3),
+    size:rnd(1,2.5), alpha:rnd(0.2,0.8)
+  }));
+
+  function draw(){
+    const W=canvas.width, H=canvas.height;
+    ctx.clearRect(0,0,W,H);
+    ctx.save();
+
+    // === Thin grid lines (right side only) ===
+    ctx.strokeStyle='rgba(0,229,204,0.04)';
+    ctx.lineWidth=0.5;
+    for(let x=W*0.71;x<W;x+=20){
+      ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke();
+    }
+    for(let y=0;y<H;y+=20){
+      ctx.beginPath(); ctx.moveTo(W*0.71,y); ctx.lineTo(W,y); ctx.stroke();
+    }
+
+    // === Drifting data dots ===
+    dots.forEach(d=>{
+      d.x+=d.vx; d.y+=d.vy;
+      if(d.x<W*0.7||d.x>W) d.vx*=-1;
+      if(d.y<0||d.y>H) d.vy*=-1;
+      const flicker=0.4+0.6*Math.sin(t*0.05+d.alpha*10);
+      ctx.beginPath(); ctx.arc(d.x,d.y,d.size,0,Math.PI*2);
+      ctx.fillStyle=`rgba(0,229,204,${flicker*d.alpha})`;
+      ctx.fill();
+    });
+
+    // === Animated corner bracket pulses ===
+    const pulseAlpha=0.3+0.3*Math.sin(t*0.04);
+    const bw=20, bl=16;
+    ctx.strokeStyle=`rgba(0,229,204,${pulseAlpha})`;
+    ctx.lineWidth=1;
+    // Top-left of the right panel area
+    const rx=W*0.705, ry=H*0.20;
+    ctx.beginPath(); ctx.moveTo(rx,ry+bl); ctx.lineTo(rx,ry); ctx.lineTo(rx+bl,ry); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(rx,H*0.67); ctx.lineTo(rx,H*0.67+bl); ctx.lineTo(rx+bl,H*0.67+bl); ctx.stroke();
+
+    t++;
+    ctx.restore();
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+// ============================================================
+//  @keyframes corePulse for inline usage
+// ============================================================
+const style=document.createElement('style');
+style.textContent=`@keyframes corePulse{from{transform:scale(1);opacity:0.7;}to{transform:scale(1.3);opacity:1;}}`;
+document.head.appendChild(style);
+
+</script>
+</body>
+</html>
