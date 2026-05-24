@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HUD Background — Exact Match</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#000;width:100vw;height:100vh;overflow:hidden;}
+canvas{position:absolute;top:0;left:0;width:100%;height:100%;}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+const cv=document.getElementById('c');
+const cx=cv.getContext('2d');
+const C='#00e5cc';
+let W,H,T=0;
+
+// hex random
+const HX='0123456789ABCDEF';
+function rh(n){let s='';for(let i=0;i<n;i++){if(i>0&&i%2===0)s+=' ';s+=HX[Math.random()*16|0]+HX[Math.random()*16|0];}return s;}
+let hexPool=Array.from({length:60},()=>rh(8)),hexT=0;
+let hexPool2=Array.from({length:60},()=>rh(8)),hexT2=0;
+
+function resize(){
+  W=cv.width=window.innerWidth;
+  H=cv.height=window.innerHeight;
+}
+resize();
+window.addEventListener('resize',resize);
+
+// ── helpers ─────────────────────────────────────
+function g(b=8){cx.shadowBlur=b;cx.shadowColor=C;}
+function ng(){cx.shadowBlur=0;}
+function tx(s,x,y,sz=8,al='left',col=C,a=1){
+  cx.save();cx.globalAlpha=a;cx.fillStyle=col;
+  cx.font=`${sz}px 'Courier New',monospace`;cx.textAlign=al;
+  cx.fillText(s,x,y);cx.restore();
+}
+function ln(x1,y1,x2,y2,col=C,lw=0.8,a=0.4){
+  cx.save();cx.globalAlpha=a;cx.strokeStyle=col;cx.lineWidth=lw;
+  cx.beginPath();cx.moveTo(x1,y1);cx.lineTo(x2,y2);cx.stroke();cx.restore();
+}
+function box(x,y,w,h,fill='rgba(0,229,204,0.04)',stroke='rgba(0,229,204,0.25)',lw=0.7){
+  cx.fillStyle=fill;cx.fillRect(x,y,w,h);
+  cx.strokeStyle=stroke;cx.lineWidth=lw;cx.strokeRect(x,y,w,h);
+}
+function corner(x,y,w,h,cs=12,col=C){
+  cx.strokeStyle=col;cx.lineWidth=1.1;g(5);
+  [[x,y,x+cs,y,x,y+cs],[x+w-cs,y,x+w,y,x+w,y+cs],
+   [x,y+h-cs,x,y+h,x+cs,y+h],[x+w-cs,y+h,x+w,y+h,x+w,y+h-cs]].forEach(([x1,y1,x2,y2,x3,y3])=>{
+    cx.beginPath();cx.moveTo(x1,y1);cx.lineTo(x2,y2);cx.lineTo(x3,y3);cx.stroke();
+  });ng();
+}
+function wave(x,y,w,h,sp,amp,a=0.9,lw=1.2,col=C){
+  cx.save();cx.globalAlpha=a;cx.strokeStyle=col;cx.lineWidth=lw;g(5);
+  cx.beginPath();
+  for(let i=0;i<=w;i++){
+    const v=Math.sin((i+T*sp)*.04)*amp+Math.sin((i+T*sp*.65)*.085)*amp*.45;
+    i===0?cx.moveTo(x+i,y+h/2+v):cx.lineTo(x+i,y+h/2+v);
+  }
+  cx.stroke();ng();cx.restore();
+}
+function zigzag(x,y,w,h,sp,amp,a=0.8){
+  cx.save();cx.globalAlpha=a;cx.strokeStyle=C;cx.lineWidth=1.2;g(4);
+  cx.beginPath();
+  const segs=24;
+  for(let i=0;i<=segs;i++){
+    const px=x+i/segs*w;
+    const v=(i%2===0?1:-1)*amp*(0.5+0.5*Math.sin(i*0.5+T*sp*.03));
+    i===0?cx.moveTo(px,y+h/2+v):cx.lineTo(px,y+h/2+v);
+  }
+  cx.stroke();ng();cx.restore();
+}
+function gauge(cx2,cy,r,pct,col=C){
+  cx.beginPath();cx.arc(cx2,cy,r,0,Math.PI*2);
+  cx.strokeStyle='rgba(0,229,204,0.18)';cx.lineWidth=1.2;cx.stroke();
+  cx.beginPath();cx.arc(cx2,cy,r,-Math.PI/2,-Math.PI/2+Math.PI*2*pct);
+  cx.strokeStyle=col;cx.lineWidth=1.8;g(8);cx.stroke();ng();
+  // inner dot
+  cx.beginPath();cx.arc(cx2,cy,1.5,0,Math.PI*2);cx.fillStyle=col;cx.fill();
+}
+function ringGauge(cx2,cy,r,pct,val){
+  // outer ring
+  cx.beginPath();cx.arc(cx2,cy,r,0,Math.PI*2);
+  cx.strokeStyle='rgba(0,229,204,0.15)';cx.lineWidth=1.5;cx.stroke();
+  // ticks
+  for(let i=0;i<16;i++){
+    const a=i/16*Math.PI*2-Math.PI/2;
+    const ro=r+2,ri=r-3;
+    cx.beginPath();cx.moveTo(cx2+Math.cos(a)*ri,cy+Math.sin(a)*ri);
+    cx.lineTo(cx2+Math.cos(a)*ro,cy+Math.sin(a)*ro);
+    cx.strokeStyle='rgba(0,229,204,0.3)';cx.lineWidth=0.5;cx.stroke();
+  }
+  // arc
+  cx.beginPath();cx.arc(cx2,cy,r,-Math.PI/2,-Math.PI/2+Math.PI*2*pct);
+  cx.strokeStyle=C;cx.lineWidth=2;g(10);cx.stroke();ng();
+  // value
+  g(6);tx(String(val),cx2,cy+4,12,'center');ng();
+}
+function bars(x,y,w,h,n,animated=true){
+  const bw=Math.max(1,(w-n)/(n));
+  for(let i=0;i<n;i++){
+    const v=animated?(0.15+0.82*Math.abs(Math.sin(i*1.12+T*.042))):(0.2+0.7*(i/n));
+    const bh=v*h;
+    cx.fillStyle=`rgba(0,229,204,${0.22+v*0.55})`;
+    g(3);cx.fillRect(x+i*(bw+1),y+h-bh,bw,bh);ng();
+  }
+}
+function radar(cx2,cy,r){
+  cx.beginPath();cx.arc(cx2,cy,r,0,Math.PI*2);
+  cx.strokeStyle='rgba(0,229,204,0.5)';cx.lineWidth=1;g(5);cx.stroke();ng();
+  cx.beginPath();cx.arc(cx2,cy,r*.6,0,Math.PI*2);
+  cx.strokeStyle='rgba(0,229,204,0.3)';cx.lineWidth=0.7;cx.stroke();
+  cx.beginPath();cx.arc(cx2,cy,r*.3,0,Math.PI*2);
+  cx.strokeStyle='rgba(0,229,204,0.2)';cx.lineWidth=0.5;cx.stroke();
+  ln(cx2-r,cy,cx2+r,cy,C,0.5,0.3);ln(cx2,cy-r,cx2,cy+r,C,0.5,0.3);
+  // sweep
+  const sa=(T*.022)%(Math.PI*2);
+  cx.beginPath();cx.moveTo(cx2,cy);cx.arc(cx2,cy,r,sa-1.0,sa);cx.closePath();
+  cx.fillStyle='rgba(0,229,204,0.18)';g(12);cx.fill();ng();
+  cx.beginPath();cx.moveTo(cx2,cy);
+  cx.lineTo(cx2+Math.cos(sa)*r,cy+Math.sin(sa)*r);
+  cx.strokeStyle=C;cx.lineWidth=1.3;g(8);cx.stroke();ng();
+  // blip
+  const ba=sa-0.4,br=r*0.5;
+  cx.beginPath();cx.arc(cx2+Math.cos(ba)*br,cy+Math.sin(ba)*br,2,0,Math.PI*2);
+  cx.fillStyle=C;g(12);cx.fill();ng();
+}
+function triIcon(cx2,cy,r){
+  cx.beginPath();
+  cx.moveTo(cx2,cy-r);cx.lineTo(cx2+r*.87,cy+r*.5);cx.lineTo(cx2-r*.87,cy+r*.5);
+  cx.closePath();cx.strokeStyle=C;cx.lineWidth=1.2;g(6);cx.stroke();ng();
+}
+function crosshair(cx2,cy,r){
+  cx.beginPath();cx.arc(cx2,cy,r,0,Math.PI*2);
+  cx.strokeStyle='rgba(0,229,204,0.55)';cx.lineWidth=1;g(4);cx.stroke();ng();
+  ln(cx2-r,cy,cx2+r,cy,C,0.5,0.3);ln(cx2,cy-r,cx2,cy+r,C,0.5,0.3);
+}
+function dnaHelix(x,y,w,h){
+  const steps=32;
+  for(let i=0;i<steps;i++){
+    const fy=y+(i/steps)*h;
+    const phase=i*0.44+T*.035;
+    const ax=x+w/2+Math.sin(phase)*(w*.4);
+    const bx=x+w/2+Math.sin(phase+Math.PI)*(w*.4);
+    const alpha=0.3+0.65*Math.abs(Math.sin(phase));
+    if(i%3===0){
+      cx.beginPath();cx.moveTo(ax,fy);cx.lineTo(bx,fy);
+      cx.strokeStyle=`rgba(0,229,204,${alpha*.5})`;cx.lineWidth=0.7;cx.stroke();
+    }
+    cx.beginPath();cx.arc(ax,fy,1.8,0,Math.PI*2);
+    cx.fillStyle=`rgba(0,229,204,${alpha})`;g(5);cx.fill();ng();
+    cx.beginPath();cx.arc(bx,fy,1.8,0,Math.PI*2);
+    cx.fillStyle=`rgba(0,229,204,${alpha})`;g(5);cx.fill();ng();
+  }
+  // strands
+  cx.beginPath();
+  for(let i=0;i<steps;i++){
+    const fy=y+(i/steps)*h;
+    const ax=x+w/2+Math.sin(i*0.44+T*.035)*(w*.4);
+    i===0?cx.moveTo(ax,fy):cx.lineTo(ax,fy);
+  }
+  cx.strokeStyle='rgba(0,229,204,0.55)';cx.lineWidth=1;g(4);cx.stroke();ng();
+  cx.beginPath();
+  for(let i=0;i<steps;i++){
+    const fy=y+(i/steps)*h;
+    const bx=x+w/2+Math.sin(i*0.44+Math.PI+T*.035)*(w*.4);
+    i===0?cx.moveTo(bx,fy):cx.lineTo(bx,fy);
+  }
+  cx.strokeStyle='rgba(0,229,204,0.55)';cx.lineWidth=1;g(4);cx.stroke();ng();
+}
+function scatterDots(x,y,w,h,n=18){
+  for(let i=0;i<n;i++){
+    const dx=x+w*.08+(i/n)*w*.84;
+    const dy=y+h*.2+Math.sin(i*0.8+T*.03)*h*.35+Math.sin(i*.3)*h*.15;
+    const a=0.4+0.5*Math.abs(Math.sin(i+T*.02));
+    cx.beginPath();cx.arc(dx,dy,2,0,Math.PI*2);
+    cx.fillStyle=`rgba(0,229,204,${a})`;g(6);cx.fill();ng();
+    if(i>0){
+      const dx0=x+w*.08+((i-1)/n)*w*.84;
+      const dy0=y+h*.2+Math.sin((i-1)*0.8+T*.03)*h*.35+Math.sin((i-1)*.3)*h*.15;
+      cx.beginPath();cx.moveTo(dx0,dy0);cx.lineTo(dx,dy);
+      cx.strokeStyle='rgba(0,229,204,0.25)';cx.lineWidth=0.7;cx.stroke();
+    }
+  }
+}
+function flowArrows(x,y,w,h,n=8){
+  cx.save();
+  const sp=h/(n+1);
+  for(let i=0;i<n;i++){
+    const ay=y+(i+1)*sp;
+    const offset=(T*1.3+i*18)%w;
+    cx.strokeStyle=`rgba(0,229,204,${.14+.18*(i%2)})`;cx.lineWidth=0.7;
+    cx.beginPath();cx.moveTo(x,ay);cx.lineTo(x+w,ay);cx.stroke();
+    const ax=x+offset;
+    cx.strokeStyle=`rgba(0,229,204,${.55+.35*(i%2)})`;cx.lineWidth=1.1;g(5);
+    cx.beginPath();cx.moveTo(ax-5,ay-3.5);cx.lineTo(ax,ay);cx.lineTo(ax-5,ay+3.5);cx.stroke();ng();
+  }
+  cx.restore();
+}
+function scanLine(x,y,w,h){
+  const sy=y+((T*1.3)%h);
+  const gr=cx.createLinearGradient(x,sy-18,x,sy+2);
+  gr.addColorStop(0,'rgba(0,229,204,0)');
+  gr.addColorStop(1,'rgba(0,229,204,0.22)');
+  cx.fillStyle=gr;cx.fillRect(x,sy-18,w,20);
+  cx.fillStyle='rgba(0,229,204,0.4)';cx.fillRect(x,sy,w,1);
+}
+function areaChart(x,y,w,h){
+  const pts=[];
+  for(let i=0;i<=40;i++){
+    const v=Math.sin(i*.28+T*.045)*.35+Math.sin(i*.14+T*.03)*.4+0.5;
+    pts.push([x+i/40*w,y+h-v*h*.82]);
+  }
+  cx.beginPath();cx.moveTo(x,y+h);
+  pts.forEach(p=>cx.lineTo(p[0],p[1]));cx.lineTo(x+w,y+h);
+  cx.closePath();cx.fillStyle='rgba(0,229,204,0.1)';cx.fill();
+  cx.beginPath();pts.forEach((p,i)=>i===0?cx.moveTo(p[0],p[1]):cx.lineTo(p[0],p[1]));
+  cx.strokeStyle=C;cx.lineWidth=1.3;g(6);cx.stroke();ng();
+}
+
+// particles
+const parts=Array.from({length:45},()=>({
+  x:Math.random(),y:Math.random(),
+  vx:(Math.random()-.5)*.00012,vy:(Math.random()-.5)*.00012,
+  a:Math.random()*.2+.04,r:Math.random()*.9+.3
+}));
+
+// ── MAIN DRAW ────────────────────────────────────────
+function draw(){
+  cx.clearRect(0,0,W,H);
+  cx.fillStyle='#010a08';cx.fillRect(0,0,W,H);
+
+  // grid
+  cx.strokeStyle='rgba(0,229,204,0.022)';cx.lineWidth=.5;
+  for(let x=0;x<W;x+=36){cx.beginPath();cx.moveTo(x,0);cx.lineTo(x,H);cx.stroke();}
+  for(let y=0;y<H;y+=36){cx.beginPath();cx.moveTo(0,y);cx.lineTo(W,y);cx.stroke();}
+
+  // particles
+  parts.forEach(p=>{
+    p.x+=p.vx;p.y+=p.vy;
+    if(p.x<0||p.x>1)p.vx*=-1;if(p.y<0||p.y>1)p.vy*=-1;
+    cx.beginPath();cx.arc(p.x*W,p.y*H,p.r,0,Math.PI*2);
+    cx.fillStyle=`rgba(0,229,204,${p.a})`;cx.fill();
+  });
+
+  // screen outer corner frame
+  corner(2,2,W-4,H-4,28);
+
+  // =====================================================
+  // LAYOUT CONSTANTS (pixel-based, scale to viewport)
+  // =====================================================
+  // Reference: 1920×1037
+  function px(x){return x/1920*W;}
+  function py(y){return y/1037*H;}
+
+  // =====================================================
+  // TOP BAR  (y: 0 → py(58))
+  // =====================================================
+  const tbH=py(58);
+  ln(0,tbH,W,tbH,C,0.5,0.2);
+  // top border notch line
+  cx.strokeStyle='rgba(0,229,204,0.5)';cx.lineWidth=1;
+  cx.beginPath();cx.moveTo(0,1);cx.lineTo(W,1);cx.stroke();
+  for(let i=0;i<10;i++){
+    const nx=W*.06+i*W*.1;
+    cx.beginPath();cx.moveTo(nx,0);cx.lineTo(nx,5);cx.stroke();
+  }
+
+  // LEFT TOP: 3 channel rows (83, 70, 39)
+  const ch3=[83,70,39];const gv3=[.83,.70,.39];
+  const rowH=tbH/3;const lColW=px(200);
+  ch3.forEach((v,i)=>{
+    const ry=i*rowH;
+    box(1,ry,lColW,rowH-1,'rgba(0,229,204,0.04)','rgba(0,229,204,0.2)');
+    cx.fillStyle=C;cx.fillRect(1,ry,2,rowH-1);
+    g(5);tx(String(v),18,ry+rowH*.65,13);ng();
+    // mini wave
+    cx.save();cx.beginPath();cx.rect(50,ry+2,80,rowH-5);cx.clip();
+    wave(50,ry+2,80,rowH-5,2+i*.3,3,.8,1);cx.restore();
+    gauge(lColW-14,ry+rowH*.5,9,gv3[i]+Math.sin(T*.02+i)*.04);
+    tx('DATA CHANNEL',lColW-50,ry+rowH*.38,5.5,'left',C,.5);
+    tx('IDENTIFICATION',lColW-50,ry+rowH*.68,5.5,'left',C,.35);
+  });
+
+  // EXTRACT DATA section (top center-left)
+  const edX=px(210),edY=2,edW=px(160);
+  g(7);tx('EXTRACT DATA',edX,edY+py(14),9);ng();
+  // filled blocks
+  const bkW=py(13),bkGap=2;
+  for(let i=0;i<10;i++){
+    const f=i<7;
+    cx.fillStyle=f?`rgba(0,229,204,${.5+.4*Math.sin(T*.05+i)})`:'rgba(0,229,204,0.1)';
+    g(f?4:0);cx.fillRect(edX+i*(bkW+bkGap),edY+py(17),bkW,py(8));ng();
+  }
+  // numbers grid  29 29 39 / 57 57 39
+  const ngX=px(210),ngY=edY+py(28);
+  const ngNums=[[29,29,39],[57,57,39]];
+  ngNums.forEach((row,ri)=>row.forEach((n,ci)=>{
+    const nv=n+Math.floor(Math.sin(T*.04+ri+ci));
+    const bx=ngX+ci*px(54),by=ngY+ri*py(14);
+    box(bx,by,px(50),py(13),'rgba(0,229,204,0.05)','rgba(0,229,204,0.25)');
+    g(4);tx(String(nv),bx+px(25),by+py(10),10,'center');ng();
+  }));
+
+  // black box between extract data and lorem ipsum
+  const bbX=px(380),bbY=2,bbW=px(75);
+  cx.fillStyle='#000';cx.fillRect(bbX,bbY,bbW,tbH-3);
+  cx.strokeStyle='rgba(0,229,204,0.3)';cx.lineWidth=0.7;cx.strokeRect(bbX,bbY,bbW,tbH-3);
+
+  // LOREM IPSUM (top center)
+  const liX=px(458),liY=3;
+  g(7);tx('LOREM IPSUM',liX,liY+py(14),10);ng();
+  tx('Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod',liX,liY+py(26),5.8,'left','rgba(255,180,0,0.7)',.9);
+  tx('DATA X54',liX,liY+py(38),6,'left',C,.55);
+  // orange bar
+  cx.fillStyle='rgba(255,160,0,0.35)';cx.fillRect(liX,liY+py(30),px(170),py(5));
+  cx.fillStyle='rgba(255,160,0,0.7)';cx.fillRect(liX,liY+py(30),px(90),py(5));
+
+  // DATA CHANNELS top center-right (70, 39 with gauges)
+  const dcX=px(640),dcY=2;
+  [{v:70,g:.70},{v:39,g:.39}].forEach((ch,i)=>{
+    const ry=dcY+i*py(28);
+    g(5);tx(String(ch.v),dcX,ry+py(18),13);ng();
+    gauge(dcX+px(35),ry+py(14),10,ch.g+Math.sin(T*.02+i)*.04);
+    tx('DATA CHANNEL',dcX+px(50),ry+py(10),5.5,'left',C,.5);
+    tx('IDENTIFICATION',dcX+px(50),ry+py(22),5.5,'left',C,.35);
+  });
+
+  // icons: crosshair, triangle, crosshair x2
+  radar(px(730),py(29),px(22));
+  triIcon(px(778),py(29),px(12));
+  crosshair(px(810),py(29),px(13));
+  crosshair(px(836),py(29),px(13));
+
+  // TOP RIGHT: 3 waveform rows
+  const wfX=px(870),wfW=px(390);
+  for(let i=0;i<3;i++){
+    const wy=i*rowH;
+    corner(wfX,wy,wfW,rowH-2,4);
+    cx.save();cx.beginPath();cx.rect(wfX+2,wy+2,wfW-4,rowH-6);cx.clip();
+    wave(wfX,wy,wfW,rowH,1.2+i*.4,5+i,.9);cx.restore();
+  }
+
+  // Far-top-right numbers 70/39
+  const frX=px(1270),frY=2;
+  [{v:70,g:.70},{v:39,g:.39}].forEach((ch,i)=>{
+    const ry=frY+i*py(28);
+    g(5);tx(String(ch.v),frX,ry+py(18),12);ng();
+    gauge(frX+px(32),ry+py(14),9,ch.g+Math.sin(T*.02+i)*.04);
+    tx('DATA CHANNEL',frX+px(46),ry+py(10),5,'left',C,.5);
+    tx('IDENTIFICATION',frX+px(46),ry+py(22),5,'left',C,.35);
+  });
+
+  // top-right long waveforms (the 3 long bars far right)
+  const lwX=px(1360),lwW=px(556);
+  for(let i=0;i<3;i++){
+    const wy=i*rowH;
+    box(lwX,wy,lwW,rowH-2,'rgba(0,229,204,0.03)','rgba(0,229,204,0.2)');
+    cx.save();cx.beginPath();cx.rect(lwX+2,wy+2,lwW-4,rowH-6);cx.clip();
+    wave(lwX,wy,lwW,rowH,1.0+i*.3,6+i,.85);cx.restore();
+  }
+
+  // =====================================================
+  // LEFT COLUMN PANELS  (x: 0 → px(210))
+  // =====================================================
+  const lcX=1,lcY=tbH+2,lcW=px(208);
+
+  // ── Radar/crosshair + triangle icons row
+  const r1H=py(105);
+  box(lcX,lcY,lcW,r1H);
+  radar(lcX+px(38),lcY+r1H/2,px(34));
+  triIcon(lcX+px(95),lcY+r1H/2,px(16));
+  crosshair(lcX+px(130),lcY+r1H/2,px(18));
+  crosshair(lcX+px(162),lcY+r1H/2,px(18));
+
+  // ── SCANNING CHART label + 70/39 gauges
+  const sc1Y=lcY+r1H+3,sc1H=py(90);
+  box(lcX,sc1Y,lcW,sc1H);
+  tx('SCANNING CHART',lcX+4,sc1Y+py(11),6.5,'left',C,.5);
+  [{v:70,g:.70},{v:39,g:.39}].forEach((ch,i)=>{
+    const gy=sc1Y+py(28)+i*py(38);
+    g(5);tx(String(ch.v),lcX+8,gy+py(8),12);ng();
+    gauge(lcX+px(40),gy,10,ch.g+Math.sin(T*.02+i)*.04);
+    tx('DATA CHANNEL',lcX+px(56),gy-py(6),5.5,'left',C,.5);
+    tx('IDENTIFICATION',lcX+px(56),gy+py(7),5.5,'left',C,.35);
+  });
+
+  // ── ANALYZING INF bar charts x2
+  const ab1Y=sc1Y+sc1H+3,ab1H=py(75);
+  box(lcX,ab1Y,lcW,ab1H);
+  tx('ANALYZING INF',lcX+4,ab1Y+py(11),6,'left',C,.5);
+  cx.save();cx.beginPath();cx.rect(lcX+2,ab1Y+py(15),lcW-4,ab1H-py(18));cx.clip();
+  bars(lcX+2,ab1Y+py(15),lcW-4,ab1H-py(18),20);cx.restore();
+
+  const ab2Y=ab1Y+ab1H+2,ab2H=py(70);
+  box(lcX,ab2Y,lcW,ab2H);
+  tx('ANALYZING INF',lcX+4,ab2Y+py(11),6,'left',C,.5);
+  cx.save();cx.beginPath();cx.rect(lcX+2,ab2Y+py(15),lcW-4,ab2H-py(18));cx.clip();
+  bars(lcX+2,ab2Y+py(15),lcW-4,ab2H-py(18),20);cx.restore();
+
+  // ── EXTRACT DATA 1/22/63 | 31/36/30
+  const ex1Y=ab2Y+ab2H+3,ex1H=py(110);
+  box(lcX,ex1Y,lcW,ex1H);
+  tx('EXTRACT DATA',lcX+4,ex1Y+py(11),6.5,'left',C,.55);
+  // number columns
+  const col1=[1,22,63],col2=[31,36,30];
+  const barNums=[col1,col2];
+  barNums.forEach((col,ci)=>{
+    col.forEach((n,ri)=>{
+      const nx=lcX+px(8)+ci*px(60);
+      const ny=ex1Y+py(20)+ri*py(27);
+      g(4);tx(String(n),nx,ny+py(10),13);ng();
+    });
+  });
+  // small bar chart
+  cx.save();cx.beginPath();cx.rect(lcX+px(125),ex1Y+py(15),px(80),ex1H-py(20));cx.clip();
+  bars(lcX+px(125),ex1Y+py(15),px(80),ex1H-py(20),10);cx.restore();
+
+  // ── EXTRACT DATA 32  / 36 61 28
+  const ex2Y=ex1Y+ex1H+3,ex2H=py(75);
+  box(lcX,ex2Y,lcW,ex2H);
+  g(6);tx('EXTRACT DATA',lcX+4,ex2Y+py(11),6.5);ng();
+  tx(' 32',lcX+px(70),ex2Y+py(11),10,'left',C,.9);
+  const en2=[[36,61,28]];
+  en2[0].forEach((n,i)=>{
+    const bx=lcX+px(8)+i*px(64);
+    box(bx,ex2Y+py(18),px(56),py(28),'rgba(0,229,204,0.05)','rgba(0,229,204,0.2)');
+    g(4);tx(String(n),bx+px(28),ex2Y+py(35),12,'center');ng();
+  });
+
+  // ── Flow arrows
+  const fa1Y=ex2Y+ex2H+3,fa1H=py(80);
+  box(lcX,fa1Y,lcW,fa1H,'rgba(0,229,204,0.02)','rgba(0,229,204,0.2)');
+  flowArrows(lcX+4,fa1Y+4,lcW-8,fa1H-8,7);
+
+  // ── Gauges 70/39 row
+  const gg1Y=fa1Y+fa1H+3,gg1H=py(90);
+  box(lcX,gg1Y,lcW,gg1H);
+  [{v:70,g:.70},{v:39,g:.39}].forEach((ch,i)=>{
+    const gx=lcX+px(16),gy=gg1Y+py(20)+i*py(38);
+    gauge(gx,gy,12,ch.g+Math.sin(T*.03+i)*.04);
+    g(5);tx(String(ch.v),gx+px(20),gy+py(5),13);ng();
+    tx('DATA CHANNEL',gx+px(38),gy-py(6),5.5,'left',C,.5);
+    tx('IDENTIFICATION',gx+px(38),gy+py(7),5.5,'left',C,.35);
+  });
+
+  // ── Large ANALYZING INF bar chart (bottom)
+  const abl1Y=gg1Y+gg1H+3,abl1H=H-abl1Y-py(4);
+  box(lcX,abl1Y,lcW,abl1H);
+  tx('ANALYZING INF',lcX+4,abl1Y+py(11),6,'left',C,.5);
+  cx.save();cx.beginPath();cx.rect(lcX+2,abl1Y+py(15),lcW-4,abl1H-py(18));cx.clip();
+  bars(lcX+2,abl1Y+py(15),lcW-4,abl1H-py(18),20);cx.restore();
+
+  // center-left bottom drawn after gg2Y is defined (see below)
+
+  // =====================================================
+  // CENTER-LEFT PANELS (x: px(212) → px(430))
+  // =====================================================
+  const clX=px(212),clW=px(210);
+
+  // ── Scatter dots plot
+  const sd1Y=lcY,sd1H=py(118);
+  box(clX,sd1Y,clW,sd1H);
+  tx('SCANNING CHART',clX+4,sd1Y+py(11),6.5,'left',C,.5);
+  cx.save();cx.beginPath();cx.rect(clX+4,sd1Y+py(16),clW-8,sd1H-py(20));cx.clip();
+  scatterDots(clX+4,sd1Y+py(16),clW-8,sd1H-py(20));cx.restore();
+
+  // ── Two ANALYZING INF bar charts
+  const ab3Y=sd1Y+sd1H+3,ab3H=py(70);
+  box(clX,ab3Y,clW,ab3H);
+  tx('ANALYZING INF',clX+4,ab3Y+py(11),6,'left',C,.45);
+  cx.save();cx.beginPath();cx.rect(clX+2,ab3Y+py(15),clW-4,ab3H-py(18));cx.clip();
+  bars(clX+2,ab3Y+py(15),clW-4,ab3H-py(18),18);cx.restore();
+  const ab4Y=ab3Y+ab3H+2,ab4H=py(65);
+  box(clX,ab4Y,clW,ab4H);
+  tx('ANALYZING INF',clX+4,ab4Y+py(11),6,'left',C,.45);
+  cx.save();cx.beginPath();cx.rect(clX+2,ab4Y+py(15),clW-4,ab4H-py(18));cx.clip();
+  bars(clX+2,ab4Y+py(15),clW-4,ab4H-py(18),18);cx.restore();
+
+  // ── 4 Ring gauges: 83, 70, 34, 31
+  const rg1Y=ab4Y+ab4H+3,rg1H=py(190);
+  box(clX,rg1Y,clW,rg1H);
+  const rgVals=[{v:83,p:.83},{v:70,p:.70},{v:34,p:.34},{v:31,p:.31}];
+  const rgR=px(24);
+  rgVals.forEach((rv,i)=>{
+    const row=Math.floor(i/2),col=i%2;
+    const gx=clX+px(55)+col*px(100),gy=rg1Y+py(48)+row*py(90);
+    ringGauge(gx,gy,rgR,rv.p+Math.sin(T*.025+i)*.04,rv.v);
+  });
+
+  // ── Gauges 70/39 bottom center-left
+  const gg2Y=rg1Y+rg1H+3,gg2H=py(90);
+  box(clX,gg2Y,clW,gg2H);
+  [{v:70,g:.70},{v:39,g:.39}].forEach((ch,i)=>{
+    const gx=clX+px(16),gy=gg2Y+py(20)+i*py(38);
+    gauge(gx,gy,12,ch.g+Math.sin(T*.03+i)*.04);
+    g(5);tx(String(ch.v),gx+px(20),gy+py(5),13);ng();
+    tx('DATA CHANNEL',gx+px(38),gy-py(6),5.5,'left',C,.5);
+    tx('IDENTIFICATION',gx+px(38),gy+py(7),5.5,'left',C,.35);
+  });
+
+  // ── CENTER-LEFT BOTTOM: extra graphics panel (was empty)
+  {
+    const clBotX=px(212),clBotW=px(210);
+    const clBotY=gg2Y+gg2H+3,clBotH=H-clBotY-py(4);
+    if(clBotH>py(20)){
+      box(clBotX,clBotY,clBotW,clBotH*0.42,'rgba(0,229,204,0.03)','rgba(0,229,204,0.22)');
+      tx('SIGNAL MONITOR',clBotX+4,clBotY+py(12),6,'left',C,.5);
+      cx.save();cx.beginPath();cx.rect(clBotX+2,clBotY+py(16),clBotW-4,clBotH*0.42-py(20));cx.clip();
+      areaChart(clBotX+2,clBotY+py(16),clBotW-4,clBotH*0.42-py(20));cx.restore();
+      const zz2Y=clBotY+clBotH*0.42+3,zz2H=clBotH*0.3;
+      corner(clBotX,zz2Y,clBotW,zz2H,8);
+      tx('FREQ SCAN',clBotX+4,zz2Y+py(12),6,'left',C,.45);
+      cx.save();cx.beginPath();cx.rect(clBotX+2,zz2Y+py(16),clBotW-4,zz2H-py(20));cx.clip();
+      zigzag(clBotX+2,zz2Y+py(16),clBotW-4,zz2H-py(20),1.4,py(16),.85);cx.restore();
+      const bl3Y=zz2Y+zz2H+3,bl3H=H-bl3Y-py(4);
+      if(bl3H>0){
+        box(clBotX,bl3Y,clBotW,bl3H,'rgba(0,229,204,0.02)','rgba(0,229,204,0.2)');
+        cx.save();cx.beginPath();cx.rect(clBotX+2,bl3Y+2,clBotW-4,bl3H-4);cx.clip();
+        flowArrows(clBotX+2,bl3Y+4,clBotW-4,bl3H-8,7);cx.restore();
+      }
+    }
+  }
+
+  // RED VERTICAL DIVIDER LINE — REMOVED
+
+  // =====================================================
+  // RIGHT COLUMN PANELS (x: px(1155) → W)
+  // =====================================================
+  const rcX=px(1158),rcW=W-rcX-2,rcY=tbH+2;
+
+  // ── ACCESS POINT large waveform
+  const ap1H=py(145);
+  corner(rcX,rcY,rcW*.55,ap1H,8);
+  tx('ACCESS POINT',rcX+6,rcY+py(13),7,'left',C,.5);
+  cx.save();cx.beginPath();cx.rect(rcX+2,rcY+py(18),rcW*.55-4,ap1H-py(22));cx.clip();
+  areaChart(rcX+2,rcY+py(18),rcW*.55-4,ap1H-py(22));cx.restore();
+  tx('SCANNING DATA',rcX+6,rcY+ap1H-py(16),6,'left',C,.4);
+
+  // ── Hex dump (right of access point)
+  const hdX=rcX+rcW*.56,hdW=rcW*.44;
+  box(hdX,rcY,hdW,ap1H,'rgba(0,229,204,0.025)','rgba(0,229,204,0.2)');
+  hexT++;if(hexT>7){hexPool.shift();hexPool.push(rh(8));hexT=0;}
+  cx.save();cx.beginPath();cx.rect(hdX+3,rcY+3,hdW-6,ap1H-6);cx.clip();
+  // two-column hex
+  for(let r=0;r<Math.floor((ap1H-6)/11);r++){
+    const s1=rh(4),s2=rh(4),s3=rh(4),s4=rh(4);
+    const a=.2+.35*(r%2);
+    tx(`${s1} ${s2}`,hdX+5,rcY+10+r*11,6,'left',C,a);
+    tx(`${s3} ${s4}`,hdX+hdW/2+3,rcY+10+r*11,6,'left',C,a*.85);
+  }
+  cx.restore();
+
+  // ── SCANNING CHART scatter (right)
+  const sc2Y=rcY+ap1H+3,sc2H=py(115);
+  box(rcX,sc2Y,rcW*.55,sc2H);
+  tx('SCANNING CHART',rcX+6,sc2Y+py(11),6.5,'left',C,.5);
+  cx.save();cx.beginPath();cx.rect(rcX+4,sc2Y+py(16),rcW*.55-8,sc2H-py(20));cx.clip();
+  scatterDots(rcX+4,sc2Y+py(16),rcW*.55-8,sc2H-py(20),16);cx.restore();
+  // gauges 70/39 right of scatter
+  const gsr=rcX+rcW*.56;
+  [{v:70,g:.70},{v:39,g:.39}].forEach((ch,i)=>{
+    const gy=sc2Y+py(20)+i*py(44);
+    g(5);tx(String(ch.v),gsr,gy+py(8),12);ng();
+    gauge(gsr+px(32),gy+py(8),10,ch.g+Math.sin(T*.02+i)*.04);
+    tx('DATA CHANNEL',gsr+px(46),gy+py(2),5.5,'left',C,.5);
+    tx('IDENTIFICATION',gsr+px(46),gy+py(14),5.5,'left',C,.35);
+  });
+
+  // ── DNA Helix
+  const dna1Y=sc2Y+sc2H+3,dna1H=py(100);
+  box(rcX,dna1Y,rcW*.55,dna1H);
+  tx('PARAMETER',rcX+6,dna1Y+py(12),6.5,'left',C,.45);
+  tx('JET OVER-BASE',rcX+rcW*.55-6,dna1Y+py(12),6,'right',C,.45);
+  dnaHelix(rcX+4,dna1Y+py(16),rcW*.55-8,dna1H-py(20));
+  // waveform to the right of DNA
+  box(rcX+rcW*.56,dna1Y,rcW*.44,dna1H,'rgba(0,229,204,0.025)','rgba(0,229,204,0.2)');
+  cx.save();cx.beginPath();cx.rect(rcX+rcW*.56+2,dna1Y+2,rcW*.44-4,dna1H-4);cx.clip();
+  wave(rcX+rcW*.56,dna1Y,rcW*.44,dna1H,1.4,py(22)*.5,.8);cx.restore();
+
+  // ── SCANNING DATA 70/39
+  const scd1Y=dna1Y+dna1H+3,scd1H=py(100);
+  box(rcX,scd1Y,rcW*.55,scd1H);
+  tx('SCANNING DATA',rcX+6,scd1Y+py(12),6.5,'left',C,.5);
+  [{v:70,g:.70},{v:39,g:.39}].forEach((ch,i)=>{
+    const gy=scd1Y+py(25)+i*py(38);
+    g(5);tx(String(ch.v),rcX+10,gy+py(8),13);ng();
+    gauge(rcX+px(45),gy+py(8),11,ch.g+Math.sin(T*.02+i)*.04);
+    tx('DATA CHANNEL',rcX+px(62),gy+py(2),5.5,'left',C,.5);
+    tx('IDENTIFICATION',rcX+px(62),gy+py(14),5.5,'left',C,.35);
+  });
+  // right side: scanning hex data
+  box(rcX+rcW*.56,scd1Y,rcW*.44,scd1H,'rgba(0,229,204,0.025)','rgba(0,229,204,0.2)');
+  hexT2++;if(hexT2>8){hexPool2.shift();hexPool2.push(rh(8));hexT2=0;}
+  cx.save();cx.beginPath();cx.rect(rcX+rcW*.56+3,scd1Y+3,rcW*.44-6,scd1H-6);cx.clip();
+  for(let r=0;r<Math.floor((scd1H-6)/11);r++){
+    const s1=rh(3),s2=rh(3);
+    const a=.2+.35*(r%2);
+    tx(`${s1} ${s2} ${rh(2)} ${rh(2)}`,rcX+rcW*.56+5,scd1Y+10+r*11,5.5,'left',C,a);
+  }
+  cx.restore();
+
+  // ── Number matrix
+  const nm1Y=scd1Y+scd1H+3,nm1H=py(85);
+  box(rcX,nm1Y,rcW*.55,nm1H,'rgba(0,229,204,0.02)','rgba(0,229,204,0.18)');
+  const nmCols=8,nmRows=5;
+  for(let r=0;r<nmRows;r++)for(let c=0;c<nmCols;c++){
+    const n=Math.floor(10+Math.random()*89);
+    const a=.18+.35*Math.abs(Math.sin(r*c*.3+T*.015));
+    tx(String(n),rcX+8+c*(rcW*.55-16)/nmCols,nm1Y+14+r*14,6.5,'left',C,a);
+  }
+  // NAVIGATOR label right
+  tx('NAVIGATOR',rcX+rcW*.56+4,nm1Y+py(12),7,'left',C,.5);
+  box(rcX+rcW*.56,nm1Y,rcW*.44,nm1H,'rgba(0,229,204,0.02)','rgba(0,229,204,0.2)');
+  flowArrows(rcX+rcW*.56+4,nm1Y+4,rcW*.44-8,nm1H-8,6);
+
+  // ── FLOW ARROWS big panel (NAVIGATOR)
+  const fa2Y=nm1Y+nm1H+3,fa2H=py(120);
+  box(rcX,fa2Y,rcW*.55,fa2H,'rgba(0,229,204,0.02)','rgba(0,229,204,0.2)');
+  flowArrows(rcX+4,fa2Y+4,rcW*.55-8,fa2H-8,10);
+  // right side more flow
+  box(rcX+rcW*.56,fa2Y,rcW*.44,fa2H,'rgba(0,229,204,0.02)','rgba(0,229,204,0.2)');
+  flowArrows(rcX+rcW*.56+4,fa2Y+4,rcW*.44-8,fa2H-8,10);
+
+  // ── SCAN ZONE: zigzag waveform + binary text
+  const sz1Y=fa2Y+fa2H+3,sz1H=py(110);
+  // zigzag
+  const zzW=rcW*.38;
+  corner(rcX,sz1Y,zzW,sz1H,8);
+  tx('SCAN ZONE',rcX+6,sz1Y+py(12),6.5,'left',C,.45);
+  cx.save();cx.beginPath();cx.rect(rcX+4,sz1Y+py(18),zzW-8,sz1H-py(22));cx.clip();
+  zigzag(rcX+4,sz1Y+py(18),zzW-8,sz1H-py(22),1.2,py(22));cx.restore();
+  // binary text columns
+  const btX=rcX+zzW+4,btW=rcW*.19;
+  box(btX,sz1Y,btW,sz1H,'rgba(0,229,204,0.02)','rgba(0,229,204,0.15)');
+  cx.save();cx.beginPath();cx.rect(btX+2,sz1Y+2,btW-4,sz1H-4);cx.clip();
+  for(let r=0;r<8;r++){
+    let s='';for(let k=0;k<18;k++)s+=Math.round(Math.random());
+    tx(s,btX+4,sz1Y+12+r*12,5.8,'left',C,.18+.3*(r%3===0?1:0));
+  }
+  cx.restore();
+  // right: scatter dots
+  const ap2X=rcX+rcW*.58,ap2W=rcW*.27;
+  box(ap2X,sz1Y,ap2W,sz1H);
+  tx('ACCESS POINT',ap2X+4,sz1Y+py(12),6,'left',C,.45);
+  cx.save();cx.beginPath();cx.rect(ap2X+4,sz1Y+py(18),ap2W-8,sz1H-py(22));cx.clip();
+  scatterDots(ap2X+4,sz1Y+py(18),ap2W-8,sz1H-py(22),12);cx.restore();
+  // far right: small bar charts
+  const sb1X=ap2X+ap2W+3,sb1W=rcW*.12;
+  box(sb1X,sz1Y,sb1W,sz1H/2-1);
+  cx.save();cx.beginPath();cx.rect(sb1X+2,sz1Y+2,sb1W-4,sz1H/2-5);cx.clip();
+  bars(sb1X+2,sz1Y+2,sb1W-4,sz1H/2-5,8);cx.restore();
+  box(sb1X,sz1Y+sz1H/2+1,sb1W,sz1H/2-1);
+  cx.save();cx.beginPath();cx.rect(sb1X+2,sz1Y+sz1H/2+3,sb1W-4,sz1H/2-5);cx.clip();
+  bars(sb1X+2,sz1Y+sz1H/2+3,sb1W-4,sz1H/2-5,8);cx.restore();
+
+  // ── BOTTOM-RIGHT: extra graphics (was empty oval area)
+  const brY=sz1Y+sz1H+3, brH=H-brY-py(4);
+  const brX=rcX, brW=rcW;
+  if(brH>py(15)){
+    // left half: area chart + waveform
+    const brl=brW*.48;
+    box(brX,brY,brl,brH,'rgba(0,229,204,0.03)','rgba(0,229,204,0.25)');
+    tx('SIGNAL OUTPUT',brX+5,brY+py(12),6,'left',C,.5);
+    cx.save();cx.beginPath();cx.rect(brX+2,brY+py(16),brl-4,brH-py(20));cx.clip();
+    areaChart(brX+2,brY+py(16),brl-4,brH-py(20));
+    // overlay wave
+    wave(brX+2,brY+py(16),brl-4,brH-py(20),1.8,brH*.18,.55,1.5);
+    cx.restore();
+    // right half: scatter dots + gauges
+    const brrX=brX+brl+3, brrW=brW*.28;
+    box(brrX,brY,brrW,brH,'rgba(0,229,204,0.02)','rgba(0,229,204,0.22)');
+    tx('SCAN ARRAY',brrX+4,brY+py(12),6,'left',C,.45);
+    cx.save();cx.beginPath();cx.rect(brrX+4,brY+py(16),brrW-8,brH-py(20));cx.clip();
+    scatterDots(brrX+4,brY+py(16),brrW-8,brH-py(20),12);cx.restore();
+    // far right: ring gauges
+    const frrX=brrX+brrW+3, frrW=brW-brl-brrW-6;
+    box(frrX,brY,frrW,brH,'rgba(0,229,204,0.03)','rgba(0,229,204,0.22)');
+    const rgVals2=[{v:83,p:.83},{v:70,p:.70}];
+    const rr2=Math.min(px(18),brH*.32);
+    rgVals2.forEach((rv,i)=>{
+      const gx=frrX+frrW/2, gy=brY+brH*.28+i*brH*.44;
+      ringGauge(gx,gy,rr2,rv.p+Math.sin(T*.025+i)*.04,rv.v);
+    });
+  }
+
+  // ── BLACK CENTER ZONE ────────────────────────────────────────────────────
+  // Clears the area between the left panels (px422) and right column (px1158)
+  // so the calculator panel has a clean dark background with no HUD overlap.
+  const czL=px(422), czR=px(1158), czTop=tbH;
+  cx.fillStyle='#010a08';
+  cx.fillRect(czL, czTop, czR-czL, H-czTop);
+  // Subtle dashed separator lines at zone edges
+  cx.save();
+  cx.strokeStyle='rgba(0,229,204,0.18)';
+  cx.lineWidth=0.6;
+  cx.setLineDash([4,6]);
+  cx.beginPath(); cx.moveTo(czL,czTop); cx.lineTo(czL,H); cx.stroke();
+  cx.beginPath(); cx.moveTo(czR,czTop); cx.lineTo(czR,H); cx.stroke();
+  cx.setLineDash([]);
+  cx.restore();
+
+  T++;requestAnimationFrame(draw);
+}
+draw();
+</script>
+</body>
+</html>
