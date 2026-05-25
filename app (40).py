@@ -276,7 +276,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#010a08;font-family:
 <div id="wrapper">
 <div id="panel">
 <div id="alhdr"><span class="ai">&#9888;</span><span class="at" id="at">WARNING</span></div>
-<h1><span class="tri">&#9651;</span>HIGH-PRESSURE GAS FLOW CALCULATOR</h1>
+<h1><span class="tri">&#9651;</span>HIGH PRESSURE GAS CALCULATOR</h1>
 <div id="body">
 <div class="sr"><label>Gas Type</label>
 <select id="gs2" onchange="rebuild()">
