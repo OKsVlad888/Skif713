@@ -26,7 +26,7 @@ import streamlit.components.v1 as components
 from pathlib import Path
 
 st.set_page_config(
-    page_title="High-Pressure Gas Flow Calculator",
+    page_title="High Pressure Gas Calculator",
     page_icon="💨",
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -276,7 +276,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#010a08;font-family:
 <div id="wrapper">
 <div id="panel">
 <div id="alhdr"><span class="ai">&#9888;</span><span class="at" id="at">WARNING</span></div>
-<h1><span class="tri">&#9651;</span>HIGH PRESSURE GAS CALCULATOR</h1>
+<h1><span class="tri">&#9651;</span>HIGH PRESSURE GAS CALCULATOR<span class="tri" style="margin-left:7px;margin-right:0">&#9651;</span></h1>
 <div id="body">
 <div class="sr"><label>Gas Type</label>
 <select id="gs2" onchange="rebuild()">
