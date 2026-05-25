@@ -276,6 +276,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:#010a08;font-family:
 <div id="wrapper">
 <div id="panel">
 <div id="alhdr"><span class="ai">&#9888;</span><span class="at" id="at">WARNING</span></div>
+<div style="position:relative;z-index:1;text-align:center;font-size:10px;letter-spacing:2px;color:var(--lc);opacity:.85;margin-bottom:6px;text-transform:uppercase;transition:color .35s">אפליקציה לחישוב ראשוני והמחשה בלבד</div>
 <h1><span class="tri">&#9651;</span>HIGH PRESSURE GAS CALCULATOR<span class="tri" style="margin-left:7px;margin-right:0">&#9651;</span></h1>
 <div id="body">
 <div class="sr"><label>Gas Type</label>
