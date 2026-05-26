@@ -333,7 +333,7 @@ var WM={
 function evalM(gas,Pi){
   if(Pi>GMAX)return{m:"D",hdr:"ALERT: SAFETY / LIMIT CONDITION",blocked:true,msg:"Risk: Pressure >2001 bar\nExceeds Maximum Limit!"};
   var l=BLK[gas];if(l&&Pi>l.max)return{m:"D",hdr:l.hdr,blocked:true,msg:l.msg};
-  if(WG.indexOf(gas)!==-1)return{m:"W",hdr:"WARNING: PRESSURE LIMIT REACHED",blocked:false};
+  if(WG.indexOf(gas)!==-1)return{m:"W",hdr:"⚠  WARNING: DANGEROUS GAS  ⚠",blocked:false};
   return{m:"N",blocked:false};
 }
 function setM(m,hdr){
