@@ -316,10 +316,10 @@ html,body{width:100%;height:100%;overflow:hidden;background:#010a08;font-family:
 <script>
 var TT=%%TT%%;
 var BLK={
-  "CO2":{max:69.9,hdr:"ALERT: SAFETY / LIMIT CONDITION",msg:"Risk: Liquid Phase CO\u2082\nPressure Exceeds Limit!"},
-  "CH4":{max:250,hdr:"ALERT: SAFETY / LIMIT CONDITION",msg:"Risk: Flammable Gas\nPressure Exceeds Safe Limit!"},
-  "C2H2":{max:17,hdr:"ALERT: SAFETY / LIMIT CONDITION",msg:"Risk: Decomposition Hazard\nMax 17 bar for Acetylene!"},
-  "H2S":{max:20,hdr:"ALERT: SAFETY / LIMIT CONDITION",msg:"Risk: Toxic Gas\nPressure Exceeds Safe Limit!"}
+  "CO2":{max:69.9,hdr:"⚠  Warning: Input pressure exceeded ⚠",msg:"Risk: Liquid Phase CO\u2082\nPressure Exceeds Limit!"},
+  "CH4":{max:250,hdr:"⚠  Warning: Input pressure exceeded ⚠",msg:"Risk: Flammable Gas\nPressure Exceeds Safe Limit!"},
+  "C2H2":{max:17,hdr:"⚠  Warning: Input pressure exceeded ⚠",msg:"Risk: Decomposition Hazard\nMax 17 bar for Acetylene!"},
+  "H2S":{max:20,hdr:"⚠  Warning: Input pressure exceeded ⚠",msg:"Risk: Toxic Gas\nPressure Exceeds Safe Limit!"}
 };
 var GMAX=2001;
 var WG=["O2","H2","CH4","C2H2","H2S"];
@@ -331,8 +331,8 @@ var WM={
   "H2S":"H\u2082S \u2014 Highly toxic. Max 20 bar. PPE and gas detection mandatory."
 };
 function evalM(gas,Pi){
-  if(Pi>GMAX)return{m:"D",hdr:"ALERT: SAFETY / LIMIT CONDITION",blocked:true,msg:"Risk: Pressure >2001 bar\nExceeds Maximum Limit!"};
-  var l=BLK[gas];if(l&&Pi>l.max)return{m:"D",hdr:l.hdr,blocked:true,msg:l.msg};
+  if(Pi>GMAX)return{m:"D",hdr:"⚠  Warning: Input pressure exceeded ⚠",blocked:true,msg:"Risk: Pressure >2001 bar\nExceeds Maximum Limit!"};
+  var l=BLK[gas];if(l&&Pi>l.max)return{m:"D",hdr:"⚠  Warning: Input pressure exceeded ⚠",blocked:true,msg:l.msg};
   if(WG.indexOf(gas)!==-1)return{m:"W",hdr:"⚠  WARNING: DANGEROUS GAS  ⚠",blocked:false};
   return{m:"N",blocked:false};
 }
