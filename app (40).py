@@ -354,13 +354,13 @@ function getAllMatches(gas,inP,diam){
   });
   if(!raw.length)return[];
   /* Step 2: sort TIER first (SS/Copper before plastic/galvanized),
-             then PRESSURE ASC (closest to inlet = best match),
-             then DIAMETER ASC (smallest tube within same pressure tier).
-     Pressure is the primary engineering criterion WITHIN each material tier. */
+             then DIAMETER ASC (closest ID to requested diameter = best match),
+             then PRESSURE ASC (smallest pressure margin within same diameter tier).
+     Diameter is the primary engineering criterion WITHIN each material tier. */
   raw.sort(function(a,b){
     var td=tier(a.spec)-tier(b.spec);
     if(td!==0)return td;
-    return(a.max_pressure-b.max_pressure)||(a.id_mm-b.id_mm);
+    return(a.id_mm-b.id_mm)||(a.max_pressure-b.max_pressure);
   });
   /* Step 3: find minimum covering pressure from preferred (tier-0) specs only.
      If no tier-0 spec exists, fall back to tier-1. */
