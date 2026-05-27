@@ -403,7 +403,7 @@ function sc(gas,inP,diam){
       +"<span style='opacity:.52;font-size:11px'> &nbsp;ID "+t.id_mm.toFixed(2)+" mm &nbsp;\u2502&nbsp; \u2264"+t.max_pressure+" bar"
       +(pLabel?" &nbsp;<em>"+pLabel+"</em>":"")+"</span><br>";
   });
-  return"<div class='spc'><div class='sh'>\u25ba Tube Spec Recommendations&nbsp;<span style='font-size:9px;opacity:.55;font-weight:normal;letter-spacing:1px'>sorted: pressure match first</span>"+badge+"</div>"
+  return"<div class='spc'><div class='sh'>\u25ba Tube Spec Recommendations&nbsp;<span style='font-size:9px;opacity:.55;font-weight:normal;letter-spacing:1px'>sorted: closest diameter match</span>"+badge+"</div>"
     +"<div class='sr2' style='line-height:2.1'>"+specRows+"</div>"
     +"<div style='margin-top:8px;padding:7px 12px;background:rgba(0,229,204,.07);border-left:3px solid var(--tc);border-radius:2px;animation:fi .3s ease both'>"
     +"<span style='font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--lc);opacity:.75'>\u2605 Optimal Tube Size &mdash; best pressure match</span><br>"
