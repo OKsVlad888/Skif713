@@ -459,6 +459,7 @@ function calc(){
     }else{var r=calcO(Pi2,Tc,L,D,Q,gas);diam=D;inP=Pi2;line="Estimated Outlet Pressure: <strong>"+r.toFixed(2)+" bar</strong>";}
     var spec=lk(gas,inP,diam);var pct=cf2(gas,inP,diam,spec);
     if(th.m==="N"){rn.innerHTML="<div class='rbox ok'><div class='rt'>"+line+"</div></div>"+sc(gas,inP,diam);rc.innerHTML="";}
+    else if(th.m==="W"){rn.innerHTML="<div class='rbox ok'><div class='rt'>"+line+"</div></div>"+sc(gas,inP,diam);rc.innerHTML="";}
     else{var allM=getAllMatches(gas,inP,diam);var seen3={},specs3=[];allM.forEach(function(r){if(!seen3[r.spec]){seen3[r.spec]=true;specs3.push(r.spec);}});var specStr3=specs3.length?specs3.join(', '):'N/A';rn.innerHTML="";rc.innerHTML="<div style='font-size:13px;color:var(--tc2);line-height:1.85'>"+line+"<br>Tube Spec: <strong>"+specStr3+"</strong><br>"+(spec?"Optimal: <strong>"+ft(spec.tube_od_w)+"<\/strong> <span style='font-size:11px;opacity:.7'>(ID "+spec.id_mm.toFixed(2)+" mm)<\/span>":"")+"<\/div>";}
     showC(pct);
   }catch(e){document.getElementById("rn").innerHTML="<div class='rbox er'>\u26a0 "+e.message+"</div>";document.getElementById("rc").innerHTML="";}
